@@ -183,6 +183,36 @@ def test_fallthrough_returns_posted(rules):
     assert rule == "fallthrough"
 
 
+def test_urban_primary_does_not_get_raised_to_70(rules):
+    """An urban primary at 30 mph (~48 kph) should NOT be told it could be 70.
+
+    The challenge brief is about where limits are too high, not too low. The
+    rule_id should still report which rule almost fired.
+    """
+    t = {
+        "highway": "primary",
+        "posted_speed_kph": 48,
+        "oneway": False,
+        "dist_to_nearest_junction_m": 500.0,
+        "vru_score": 0.0,
+    }
+    speed, rule = safe_system_speed(t, rules)
+    assert speed == 48          # clamped to posted; never recommend an increase
+    assert rule == "rural_arterial_undivided"  # rule_id preserved
+
+
+def test_junction_proximate_does_not_raise_urban_20mph(rules):
+    """A 20 mph (~32 kph) token near a junction shouldn't be told to raise to 50."""
+    t = {
+        "highway": "unclassified",
+        "posted_speed_kph": 32,
+        "dist_to_nearest_junction_m": 10.0,
+    }
+    speed, rule = safe_system_speed(t, rules)
+    assert speed == 32
+    assert rule == "junction_proximate"
+
+
 # ---------------------------------------------------------------------------
 # Downstream: misalignment and priority
 # ---------------------------------------------------------------------------

@@ -94,20 +94,8 @@ def country_default_speed(highway: str | None, country: str, rules: Rules) -> in
 # ---------------------------------------------------------------------------
 
 
-def safe_system_speed(token: dict[str, Any], rules: Rules) -> tuple[int, str]:
-    """Recommended Safe System speed (km/h) + the rule id that fired.
-
-    Decision tree (first match wins):
-      1. motorway / motorway_link → trust design (posted speed)
-      2. VRU exposure high → pedestrian_mix cap (30)
-      3. Junction-proximate → side_impact cap (50)
-      4. High curvature on a high-speed road → curvature cap (60)
-      5. Undivided high-speed arterial → head_on cap (70)
-      6. Divided primary/trunk → divided_default (90)
-      7. Secondary/tertiary → 60
-      8. Minor / unclassified → 50
-      9. Fallback → posted (no opinion)
-    """
+def _raw_safe_system_speed(token: dict[str, Any], rules: Rules) -> tuple[int, str]:
+    """Inner decision tree — returns the rule output without the posted-speed clamp."""
     caps = rules.caps
     t = rules.thresholds
 
@@ -158,6 +146,43 @@ def safe_system_speed(token: dict[str, Any], rules: Rules) -> tuple[int, str]:
 
     # 9. Fall through
     return posted, "fallthrough"
+
+
+def safe_system_speed(token: dict[str, Any], rules: Rules) -> tuple[int, str]:
+    """Recommended Safe System speed (km/h) + the rule id that fired.
+
+    The challenge brief is about identifying where posted limits are TOO HIGH,
+    not where they could safely be higher. So we never recommend a speed
+    *above* the posted limit (except for motorways, where we trust the design
+    by definition). If the inner rule would suggest an increase, we clamp to
+    posted — the rule_id is preserved so callers can see which rule almost
+    fired.
+
+    Decision tree:
+      1. motorway / motorway_link  → trust design (posted)
+      2. VRU exposure high         → pedestrian_mix cap (30)
+      3. Residential / living_street class → pedestrian_mix cap (30)
+      4. Junction-proximate        → side_impact cap (50)
+      5. High curvature on high-speed road → curvature cap (60)
+      6. Undivided trunk/primary   → head_on cap (70)
+      7. Divided trunk/primary     → divided_default (90)
+      8. Secondary/tertiary        → 60
+      9. Minor / unclassified      → 50
+     10. Fall through              → posted
+    """
+    raw, rule_id = _raw_safe_system_speed(token, rules)
+
+    # Motorway and fall-through are already at posted; no clamping needed.
+    if rule_id in {"motorway_passthrough", "fallthrough"}:
+        return raw, rule_id
+
+    posted = int(token.get("posted_speed_kph") or 0)
+    if posted > 0 and raw > posted:
+        # The rule would recommend raising the limit. For the misalignment-
+        # detection use case we treat this as "no opinion" — return posted but
+        # preserve the rule_id so analysts can see what nearly fired.
+        return posted, rule_id
+    return raw, rule_id
 
 
 def misalignment_kph(token: dict[str, Any], rules: Rules) -> int:
