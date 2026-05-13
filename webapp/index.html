@@ -414,7 +414,15 @@
     return interpStops(RAMPS[field.ramp], Math.max(0, Math.min(1, t)));
   }
 
-  function styleFor(feature, field, selected) {
+  function styleFor(feature, field, selected, hidden) {
+    if (hidden) {
+      return {
+        color: '#000',
+        weight: 0,
+        opacity: 0,
+        interactive: false
+      };
+    }
     return {
       color: colourFor(feature, field),
       weight: selected ? 8 : 5,
@@ -439,19 +447,15 @@
     const filterOn = hotspotsOnly.checked;
     let shown = 0;
     const total = featuresData.length;
+    // Filter by setting hidden layers to fully transparent + non-interactive,
+    // not by removing them from the geoJSON layer. Remove/re-add in canvas
+    // mode orphans the canvas path, leaving phantom features visible at
+    // 1-2 px until a full map redraw. Hide-via-style is always reliable.
     featuresData.forEach(({ feature, layer }) => {
-      const keep = !filterOn || (feature.properties.priority_score >= 0.3);
-      if (keep) {
-        if (!geoLayer.hasLayer(layer)) geoLayer.addLayer(layer);
-        layer.setStyle(styleFor(feature, currentField, layer === selectedLayer));
-        shown++;
-      } else {
-        if (geoLayer.hasLayer(layer)) geoLayer.removeLayer(layer);
-      }
+      const visible = !filterOn || (feature.properties.priority_score >= 0.3);
+      layer.setStyle(styleFor(feature, currentField, layer === selectedLayer, !visible));
+      if (visible) shown++;
     });
-    // Force the canvas renderer to repaint — setStyle marks layers dirty but
-    // in canvas mode the redraw isn't guaranteed until the next frame.
-    if (canvasRenderer._update) canvasRenderer._update();
     countDisplay.innerHTML = 'Showing <strong>' + shown.toLocaleString() + '</strong> of <strong>' + total.toLocaleString() + '</strong> segments';
     updateLegend(currentField);
   }
