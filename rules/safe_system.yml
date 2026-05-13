@@ -55,15 +55,20 @@ country_defaults:
     living_street: 32  # 20 mph
     service: 32
   nz:
+    # NZ has a legal urban default of 50 km/h and rural default of 100. When
+    # OSM does not tag `maxspeed`, it is usually because the road is
+    # un-flagged urban (rural state highways are almost always tagged). So
+    # fall back to 50 for any class that isn't unambiguously a state highway
+    # or motorway.
     motorway: 100
     trunk: 100
-    primary: 100
-    secondary: 100
-    tertiary: 80
-    unclassified: 80
+    primary: 80      # primary in NZ OSM is mostly arterial urban; rural=80-100
+    secondary: 60    # urban arterial assumption
+    tertiary: 50     # urban assumption
+    unclassified: 50 # urban assumption
     residential: 50
     living_street: 30
-    service: 50
+    service: 30
   generic:
     motorway: 100
     trunk: 90
