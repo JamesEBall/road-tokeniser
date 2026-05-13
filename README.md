@@ -12,7 +12,7 @@ Entry for the **AI for Safer Roads Innovation Challenge** (Asian Development Ban
 2. Splits each road into ~25 m **tokens** (boundaries forced at every junction).
 3. Computes geometric features per token (length, sinuosity, curvature, bearing change, junction proximity).
 4. Attaches OSM `maxspeed` tags + country-default fallbacks for posted speed.
-5. Attaches a **Vulnerable Road User (VRU)** exposure proxy from OSM amenities (schools, hospitals, markets, crossings, bus stops).
+5. Attaches a **Vulnerable Road User (VRU)** exposure proxy from OSM amenities (schools, pedestrian crossings, bus stops; more layers in Phase B).
 6. Spatial-joins crash records (UK STATS19 or NZ Waka Kotahi CAS), severity-weighted, where available.
 7. Applies a **Safe System** rule engine to derive a recommended speed limit per token.
 8. Flags segments where the posted limit is **misaligned** with the Safe System recommendation, prioritised by VRU exposure and crash history.

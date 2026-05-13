@@ -45,12 +45,19 @@ vru_score_weights:
 # Used by attach_maxspeed in tokenise.py.
 country_defaults:
   uk:
+    # UK national speed limits: motorway 70 mph (113 kph); single-carriageway
+    # outside built-up area 60 mph (96 kph); built-up area 30 mph (48 kph).
+    # When OSM has no `maxspeed`, urban under-tagging is the common case (many
+    # 20/30 mph zones are not exhaustively re-tagged). Conservative posture
+    # for "is the limit too high?" framing: assume urban for the unclassified
+    # / tertiary classes; trunk and primary stay at the rural default since
+    # those are usually inter-urban A-roads.
     motorway: 113      # 70 mph
-    trunk: 96          # 60 mph
+    trunk: 96          # 60 mph (inter-urban A-road default)
     primary: 96
-    secondary: 96
-    tertiary: 96
-    unclassified: 96
+    secondary: 64      # 40 mph — mixed urban/sub-urban
+    tertiary: 48       # 30 mph — usually urban
+    unclassified: 48   # 30 mph — usually urban
     residential: 48    # 30 mph
     living_street: 32  # 20 mph
     service: 32

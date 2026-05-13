@@ -68,25 +68,27 @@ def parse_bbox(s: str) -> tuple[float, float, float, float]:
 # ---------------------------------------------------------------------------
 
 
-def fetch_road_edges(bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
-    """Fetch drivable road network from OSM and return as an edges GeoDataFrame.
-
-    Edges retain `highway`, `oneway`, `maxspeed`, `name`, `osmid`, `geometry`.
-    OSMnx may simplify a way into a single geometry — that's fine, we tokenise it.
-    """
-    print(f"[osm] fetching network for bbox={bbox}", file=sys.stderr)
-    # OSMnx 2.x expects (left, bottom, right, top) tuple
-    G = ox.graph_from_bbox(bbox, network_type="drive", simplify=True, retain_all=False)
-    edges = ox.graph_to_gdfs(G, nodes=False, edges=True)
-    print(f"[osm] {len(edges)} edges fetched", file=sys.stderr)
-    return edges.reset_index(drop=False)
-
-
 def _first_value(v):
     """OSM tags can be a list when multiple tags exist on the way; pick the first."""
     if isinstance(v, list):
         return v[0] if v else None
     return v
+
+
+def _parse_oneway(v) -> bool:
+    """OSM `oneway` is a string ('yes'/'no'/'-1') or a list when ways merged.
+
+    `bool([False, False])` is `True` — that bug silently flips two-way roads
+    into 'divided'. Always unwrap the list first, then test against truthy
+    string values.
+    """
+    v = _first_value(v)
+    if v is None:
+        return False
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    return s in {"yes", "true", "1", "-1"}
 
 
 def split_line(line: LineString, length_m: float, line_length_m: float) -> list[LineString]:
@@ -130,7 +132,7 @@ def tokenise_edges(edges_metric: gpd.GeoDataFrame, length_m: float) -> gpd.GeoDa
                     "way_osmid": _first_value(edge.get("osmid")),
                     "name": _first_value(edge.get("name")),
                     "highway": _first_value(edge.get("highway")),
-                    "oneway": bool(edge.get("oneway")) if edge.get("oneway") is not None else False,
+                    "oneway": _parse_oneway(edge.get("oneway")),
                     "lanes": _first_value(edge.get("lanes")),
                     "maxspeed_raw": _first_value(edge.get("maxspeed")),
                     "surface": _first_value(edge.get("surface")),
@@ -338,16 +340,42 @@ def attach_vru_proxies(
 # ---------------------------------------------------------------------------
 
 
+def _check_required_columns(df: pd.DataFrame, required: list[str], source: str) -> None:
+    """Fail loudly if a CSV schema drifted out from under us."""
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{source}: required columns missing: {missing}. "
+            f"Got columns: {list(df.columns)[:20]}..."
+        )
+
+
 def load_crashes_uk(csv_path: Path, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
     w, s, e, n = bbox
-    df = pd.read_csv(
-        csv_path,
-        usecols=["longitude", "latitude", "collision_severity", "collision_year"],
-        low_memory=False,
+    # Read header first to defend against case / naming drift between STATS19
+    # publication years (older snapshots use Title Case).
+    header = pd.read_csv(csv_path, nrows=0).columns
+    rename = {}
+    for c in header:
+        lc = c.lower()
+        if lc in {"longitude", "long"}:
+            rename[c] = "longitude"
+        elif lc == "latitude":
+            rename[c] = "latitude"
+        elif lc in {"collision_severity", "accident_severity"}:
+            rename[c] = "collision_severity"
+        elif lc in {"collision_year", "accident_year"}:
+            rename[c] = "collision_year"
+        elif lc in {"collision_index", "accident_index"}:
+            rename[c] = "collision_index"
+    df = pd.read_csv(csv_path, low_memory=False).rename(columns=rename)
+    _check_required_columns(
+        df, ["longitude", "latitude", "collision_severity", "collision_index"], "STATS19"
     )
     df = df[(df.longitude.between(w, e)) & (df.latitude.between(s, n))].copy()
     df = df.dropna(subset=["longitude", "latitude"])
-    # Severity: 1=fatal, 2=serious, 3=slight → weights 5/3/1
+    # De-duplicate at source — same collision_index should never appear twice.
+    df = df.drop_duplicates(subset=["collision_index"], keep="first")
     weights = {1: 5, 2: 3, 3: 1}
     df["severity_weight"] = df["collision_severity"].map(weights).fillna(1)
     gdf = gpd.GeoDataFrame(
@@ -355,18 +383,32 @@ def load_crashes_uk(csv_path: Path, bbox: tuple[float, float, float, float]) -> 
         geometry=gpd.points_from_xy(df.longitude, df.latitude),
         crs=f"EPSG:{WGS84}",
     )
-    return gdf[["geometry", "severity_weight", "collision_year"]]
+    keep = ["geometry", "severity_weight", "collision_index"]
+    if "collision_year" in gdf.columns:
+        keep.append("collision_year")
+    return gdf[keep].rename(columns={"collision_index": "crash_id"})
 
 
 def load_crashes_nz(csv_path: Path, bbox: tuple[float, float, float, float]) -> gpd.GeoDataFrame:
     w, s, e, n = bbox
-    df = pd.read_csv(
-        csv_path,
-        usecols=["X", "Y", "fatalCount", "seriousInjuryCount", "minorInjuryCount", "crashYear"],
-        low_memory=False,
-    )
+    # CAS exports columns 'X' and 'Y' for WGS84 when spatialRefId=4326 is set.
+    # Defensive: accept 'longitude'/'latitude' aliases too.
+    header = pd.read_csv(csv_path, nrows=0).columns
+    rename = {}
+    for c in header:
+        lc = c.lower()
+        if lc == "longitude" or c == "X":
+            rename[c] = "X"
+        elif lc == "latitude" or c == "Y":
+            rename[c] = "Y"
+    df = pd.read_csv(csv_path, low_memory=False).rename(columns=rename)
+    _check_required_columns(df, ["X", "Y", "OBJECTID"], "CAS")
     df = df[(df.X.between(w, e)) & (df.Y.between(s, n))].copy()
     df = df.dropna(subset=["X", "Y"])
+    df = df.drop_duplicates(subset=["OBJECTID"], keep="first")
+    for col in ("fatalCount", "seriousInjuryCount", "minorInjuryCount"):
+        if col not in df.columns:
+            df[col] = 0
     df["severity_weight"] = (
         5 * df["fatalCount"].fillna(0)
         + 3 * df["seriousInjuryCount"].fillna(0)
@@ -377,7 +419,10 @@ def load_crashes_nz(csv_path: Path, bbox: tuple[float, float, float, float]) -> 
         geometry=gpd.points_from_xy(df.X, df.Y),
         crs=f"EPSG:{WGS84}",
     )
-    return gdf[["geometry", "severity_weight", "crashYear"]]
+    keep = ["geometry", "severity_weight", "OBJECTID"]
+    if "crashYear" in gdf.columns:
+        keep.append("crashYear")
+    return gdf[keep].rename(columns={"OBJECTID": "crash_id"})
 
 
 def attach_crashes(
@@ -385,28 +430,47 @@ def attach_crashes(
     crashes_metric: gpd.GeoDataFrame,
     buffer_m: float = 15.0,
 ) -> gpd.GeoDataFrame:
-    """Sum severity-weighted crashes within `buffer_m` of each token's geometry."""
-    out = tokens_metric.copy()
+    """Assign each crash to its single nearest token within `buffer_m`.
+
+    Crashes at junctions are otherwise double-counted (a crash at a four-way
+    intersection lies inside four token buffers). We solve this with
+    ``sjoin_nearest`` instead of a buffered ``sjoin``, so each crash maps to
+    exactly one token — the geometrically closest one within the cutoff.
+    """
+    out = tokens_metric.reset_index(drop=True).copy()
+    out["__tok_idx"] = np.arange(len(out))
+
     if len(crashes_metric) == 0:
         out["crash_count"] = 0
         out["crash_score"] = 0.0
-        return out
+        return out.drop(columns=["__tok_idx"])
 
-    buf = gpd.GeoDataFrame(
-        {"__tok_idx": np.arange(len(out))},
-        geometry=out.geometry.buffer(buffer_m),
-        crs=out.crs,
+    cm = crashes_metric.reset_index(drop=True)[
+        [c for c in ("geometry", "severity_weight", "crash_id") if c in crashes_metric.columns]
+    ].copy()
+
+    # For each crash, find the nearest token within buffer_m. Crashes farther
+    # than that are dropped (filtered out via distance_col + cutoff).
+    nearest = gpd.sjoin_nearest(
+        cm,
+        out[["__tok_idx", "geometry"]],
+        how="left",
+        max_distance=buffer_m,
+        distance_col="__dist_m",
     )
-    cm = crashes_metric.reset_index(drop=True)[["geometry", "severity_weight"]]
-    joined = gpd.sjoin(buf, cm, how="left", predicate="intersects")
-    agg = joined.groupby("__tok_idx").agg(
-        crash_count=("severity_weight", lambda s: int(s.notna().sum())),
-        crash_score=("severity_weight", lambda s: float(s.sum() if s.notna().any() else 0.0)),
+    # Drop crashes that had no token within range
+    nearest = nearest.dropna(subset=["__tok_idx"])
+    # If ties produced duplicate rows for the same crash, keep the closest
+    if "crash_id" in nearest.columns:
+        nearest = nearest.sort_values("__dist_m").drop_duplicates(subset=["crash_id"], keep="first")
+
+    agg = nearest.groupby("__tok_idx").agg(
+        crash_count=("severity_weight", "size"),
+        crash_score=("severity_weight", "sum"),
     )
-    out = out.reset_index(drop=True)
-    out["crash_count"] = out.index.map(agg["crash_count"]).fillna(0).astype(int)
-    out["crash_score"] = out.index.map(agg["crash_score"]).fillna(0.0).astype(float)
-    return out
+    out["crash_count"] = out["__tok_idx"].map(agg["crash_count"]).fillna(0).astype(int)
+    out["crash_score"] = out["__tok_idx"].map(agg["crash_score"]).fillna(0.0).astype(float)
+    return out.drop(columns=["__tok_idx"])
 
 
 # ---------------------------------------------------------------------------
@@ -514,11 +578,14 @@ def run(bbox, site, token_len, out, rules_path=None):
     rules = load_rules(rules_path) if rules_path else load_rules()
     utm = utm_epsg_for_bbox(bbox)
 
-    edges = fetch_road_edges(bbox)
-    # Pull junctions from the same graph for proximity later
-    print("[osm] fetching nodes for junction proximity", file=sys.stderr)
-    G = ox.graph_from_bbox(bbox, network_type="drive", simplify=True)
+    # One Overpass round-trip — return both edges and nodes from a single graph.
+    print(f"[osm] fetching network for bbox={bbox}", file=sys.stderr)
+    G = ox.graph_from_bbox(bbox, network_type="drive", simplify=True, retain_all=False)
+    edges = ox.graph_to_gdfs(G, nodes=False, edges=True).reset_index(drop=False)
     nodes = ox.graph_to_gdfs(G, nodes=True, edges=False).reset_index(drop=False)
+    print(f"[osm] {len(edges)} edges, {len(nodes)} nodes", file=sys.stderr)
+    if len(edges) == 0:
+        raise RuntimeError(f"OSM returned no drivable edges for bbox={bbox}")
 
     edges_metric = edges.to_crs(epsg=utm)
     nodes_metric = nodes.to_crs(epsg=utm)

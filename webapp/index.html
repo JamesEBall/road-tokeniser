@@ -329,7 +329,10 @@
   ];
 
   // ---------- DOM ----------
-  const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([52.207, 0.125], 14);
+  // Explicit canvas renderer — needed so layer.setStyle() reliably redraws and
+  // click hit-tests work after layers move between parents.
+  const canvasRenderer = L.canvas({ padding: 0.5 });
+  const map = L.map('map', { zoomControl: true, renderer: canvasRenderer }).setView([52.207, 0.125], 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
@@ -364,9 +367,22 @@
   // ---------- State ----------
   let featuresData = [];      // array of {feature, layer}
   let fieldRanges  = {};      // key -> {min, max}
-  let layerGroup   = L.layerGroup().addTo(map);
+  let geoLayer     = null;    // populated on data load
   let currentField = FIELDS[0];
   let selectedLayer = null;
+
+  // HTML-escape user-provided / OSM-provided strings before innerHTML concat.
+  // OSM way names CAN contain '<' etc.; not escaping is an XSS vector even
+  // on a local file viewer.
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   // ---------- Helpers ----------
   function computeRanges(features) {
@@ -401,10 +417,11 @@
   function styleFor(feature, field, selected) {
     return {
       color: colourFor(feature, field),
-      weight: selected ? 7 : 4,
-      opacity: 0.88,
+      weight: selected ? 8 : 5,
+      opacity: 0.92,
       lineCap: 'round',
-      lineJoin: 'round'
+      lineJoin: 'round',
+      interactive: true
     };
   }
 
@@ -425,13 +442,16 @@
     featuresData.forEach(({ feature, layer }) => {
       const keep = !filterOn || (feature.properties.priority_score >= 0.3);
       if (keep) {
-        if (!map.hasLayer(layer)) layerGroup.addLayer(layer);
+        if (!geoLayer.hasLayer(layer)) geoLayer.addLayer(layer);
         layer.setStyle(styleFor(feature, currentField, layer === selectedLayer));
         shown++;
       } else {
-        if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+        if (geoLayer.hasLayer(layer)) geoLayer.removeLayer(layer);
       }
     });
+    // Force the canvas renderer to repaint — setStyle marks layers dirty but
+    // in canvas mode the redraw isn't guaranteed until the next frame.
+    if (canvasRenderer._update) canvasRenderer._update();
     countDisplay.innerHTML = 'Showing <strong>' + shown.toLocaleString() + '</strong> of <strong>' + total.toLocaleString() + '</strong> segments';
     updateLegend(currentField);
   }
@@ -467,22 +487,22 @@
 
     sbBody.innerHTML = '' +
       '<div class="speeds">' +
-        '<span>Posted: <strong>' + posted + ' km/h</strong></span>' +
+        '<span>Posted: <strong>' + esc(posted) + ' km/h</strong></span>' +
         '<span class="arrow">&rarr;</span>' +
-        '<span>Safe System: <strong>' + safe + ' km/h</strong></span>' +
+        '<span>Safe System: <strong>' + esc(safe) + ' km/h</strong></span>' +
         '<span class="arrow">&rarr;</span>' +
-        '<span class="mis">' + misStr + '</span>' +
+        '<span class="mis">' + esc(misStr) + '</span>' +
       '</div>' +
       '<div class="section">' +
         '<h3>Priority</h3>' +
         '<div class="row"><span class="k">Priority score</span><span class="v">' + fmtNum(p.priority_score, 3) + '</span></div>' +
-        '<div class="row"><span class="k">Rule fired</span><span class="v"><span class="rule-tag">' + (p.safe_system_rule || '—') + '</span></span></div>' +
+        '<div class="row"><span class="k">Rule fired</span><span class="v"><span class="rule-tag">' + esc(p.safe_system_rule || '—') + '</span></span></div>' +
       '</div>' +
       '<div class="section">' +
         '<h3>Vulnerable road users</h3>' +
         '<div class="row"><span class="k">VRU score</span><span class="v">' + fmtNum(p.vru_score, 3) + '</span></div>' +
         '<div class="pills">' +
-          pills.map(x => '<span class="pill ' + (x.on ? 'on' : '') + '">' + x.label + (x.on ? ' ✓' : '') + '</span>').join('') +
+          pills.map(x => '<span class="pill ' + (x.on ? 'on' : '') + '">' + esc(x.label) + (x.on ? ' ✓' : '') + '</span>').join('') +
         '</div>' +
       '</div>' +
       '<div class="section">' +
@@ -502,14 +522,14 @@
       '<div class="section">' +
         '<h3>Attributes</h3>' +
         '<div class="row"><span class="k">Oneway</span><span class="v">' + (p.oneway ? 'yes' : 'no') + '</span></div>' +
-        '<div class="row"><span class="k">Lanes</span><span class="v">' + (p.lanes || '—') + '</span></div>' +
-        '<div class="row"><span class="k">Surface</span><span class="v">' + (p.surface || '—') + '</span></div>' +
-        '<div class="row"><span class="k">Raw maxspeed</span><span class="v">' + (p.maxspeed_raw || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Lanes</span><span class="v">' + esc(p.lanes || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Surface</span><span class="v">' + esc(p.surface || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Raw maxspeed</span><span class="v">' + esc(p.maxspeed_raw || '—') + '</span></div>' +
       '</div>' +
       '<div class="section">' +
         '<h3>Identifiers</h3>' +
-        '<div class="row"><span class="k">Token ID</span><span class="v">' + p.token_id + '</span></div>' +
-        '<div class="row"><span class="k">OSM way ID</span><span class="v">' + (p.way_osmid != null ? p.way_osmid : '—') + '</span></div>' +
+        '<div class="row"><span class="k">Token ID</span><span class="v">' + esc(p.token_id) + '</span></div>' +
+        '<div class="row"><span class="k">OSM way ID</span><span class="v">' + (p.way_osmid != null ? esc(p.way_osmid) : '—') + '</span></div>' +
       '</div>';
 
     sidebar.classList.add('open');
@@ -563,22 +583,31 @@
       fieldRanges = computeRanges(features);
       currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
 
-      const geoLayer = L.geoJSON(geojson, {
+      // Build the L.geoJSON layer directly on the map's canvas renderer.
+      // We keep the same layer container — add/remove for filtering instead
+      // of moving layers between parents (which severs canvas hit-testing).
+      geoLayer = L.geoJSON(geojson, {
+        renderer: canvasRenderer,
         style: feat => styleFor(feat, currentField, false),
         onEachFeature: (feat, layer) => {
           featuresData.push({ feature: feat, layer: layer });
-          layer.on('click', () => showSidebar(feat, layer));
+          // Stop click propagation so the click doesn't reach the map's
+          // background click handler (which would close the sidebar).
+          layer.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            showSidebar(feat, layer);
+          });
         }
-      });
-
-      // Add layers individually so we can filter via add/remove on the layerGroup
-      geoLayer.eachLayer(l => layerGroup.addLayer(l));
+      }).addTo(map);
 
       // Fit map to data bounds
       try {
         const b = geoLayer.getBounds();
         if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
       } catch(e) {}
+
+      // Close sidebar when clicking the map background (off any segment)
+      map.on('click', () => { if (selectedLayer) closeSidebar(); });
 
       applyStyling();
       loadingEl.style.display = 'none';
