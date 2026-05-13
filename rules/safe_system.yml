@@ -1,0 +1,76 @@
+# Safe System speed-limit policy thresholds.
+#
+# Numbers in this file are *tunable policy*. Logic lives in road_tokeniser/safe_system.py.
+#
+# References:
+#   - WHO Global Plan for the Decade of Action for Road Safety 2021-2030
+#   - iRAP Star Ratings methodology
+#   - Towards Zero / Safe System Approach (national variants in AU, NZ, SE)
+#
+# All speeds in km/h.
+
+version: 1
+
+# Speed caps per collision-survivability regime.
+# Source: WHO/iRAP — speeds at which an unprotected road user has reasonable
+# survival probability for the dominant collision type.
+caps:
+  pedestrian_mix: 30        # peds/cyclists share carriageway or close exposure, no separation
+  side_impact: 50           # intersection where side-impact between vehicles is possible
+  head_on: 70               # two-way road without median, head-on possible
+  rear_end_only: 100        # fully grade-separated and divided, only rear-end remains
+
+# Numeric thresholds for triggering rules.
+thresholds:
+  vru_score_high: 0.2                  # vru_score >= this triggers pedestrian_mix
+  junction_proximity_m: 30             # token centroid within Xm of a junction → side_impact
+  school_proximity_m: 100              # school amenity within Xm contributes to vru_score
+  crossing_proximity_m: 50             # pedestrian crossing within Xm contributes to vru_score
+  bus_stop_proximity_m: 50             # bus stop within Xm contributes to vru_score
+  high_curvature_rad_per_m: 0.05       # mean_abs_curvature above this caps high-speed roads
+  high_curvature_cap_kph: 60           # cap applied when high_curvature triggered on a fast road
+  rural_high_speed_kph: 80             # posted >= this is "high speed" for curvature rule
+  divided_default_kph: 90              # default for divided/oneway primary/trunk
+  secondary_tertiary_kph: 60           # default for class secondary/tertiary
+  minor_road_kph: 50                   # default for unclassified/track
+
+# VRU proxy score weights (sum bounded to [0, 1])
+vru_score_weights:
+  school_within_proximity: 0.4
+  crossing_within_proximity: 0.3
+  residential_or_livingstreet_class: 0.2
+  bus_stop_within_proximity: 0.1
+
+# Country-default posted speeds when OSM `maxspeed` tag is missing.
+# Used by attach_maxspeed in tokenise.py.
+country_defaults:
+  uk:
+    motorway: 113      # 70 mph
+    trunk: 96          # 60 mph
+    primary: 96
+    secondary: 96
+    tertiary: 96
+    unclassified: 96
+    residential: 48    # 30 mph
+    living_street: 32  # 20 mph
+    service: 32
+  nz:
+    motorway: 100
+    trunk: 100
+    primary: 100
+    secondary: 100
+    tertiary: 80
+    unclassified: 80
+    residential: 50
+    living_street: 30
+    service: 50
+  generic:
+    motorway: 100
+    trunk: 90
+    primary: 80
+    secondary: 70
+    tertiary: 60
+    unclassified: 60
+    residential: 50
+    living_street: 30
+    service: 30
