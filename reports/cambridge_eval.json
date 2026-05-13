@@ -1,0 +1,225 @@
+{
+  "config": {
+    "num_nodes": 12008,
+    "num_features": 30,
+    "num_edges": 80050,
+    "embed_dim": 128,
+    "num_layers": 4,
+    "param_count": 308638
+  },
+  "reconstruction": {
+    "trials": 8,
+    "mask_rate": 0.15,
+    "numeric_mse_mean": 0.1081530312076211,
+    "numeric_mse_std": 0.006416185776293425,
+    "binary_bce_mean": 0.07110269460827112,
+    "highway_acc_mean": 0.9938922673463821,
+    "highway_acc_std": 0.001360068957160285,
+    "per_feature_mse": {
+      "length_m": 0.2173374593257904,
+      "chord_m": 0.1561528444290161,
+      "sinuosity": 0.05372818931937218,
+      "mean_abs_curvature_rad_per_m": 0.06913822144269943,
+      "total_bearing_change_rad": 0.2525014877319336,
+      "dist_to_nearest_junction_m": 0.015951169654726982,
+      "vru_score": 0.09221022576093674,
+      "posted_speed_kph": 0.008204705081880093
+    }
+  },
+  "embedding_quality": {
+    "learned": {
+      "linear_probe_acc": 0.9991673605328892,
+      "linear_probe_f1": 0.9574231704694321,
+      "knn20_purity": 0.9925333333333334,
+      "dim": 128
+    },
+    "raw_features_no_highway": {
+      "linear_probe_acc": 0.9217318900915903,
+      "linear_probe_f1": 0.45422078756873924,
+      "knn20_purity": 0.8756666666666667,
+      "dim": 12
+    },
+    "random_projection_no_highway": {
+      "linear_probe_acc": 0.9217318900915903,
+      "linear_probe_f1": 0.45515419700557336,
+      "knn20_purity": 0.8702333333333333,
+      "dim": 128
+    },
+    "pca_no_highway": {
+      "linear_probe_acc": 0.9221482098251457,
+      "linear_probe_f1": 0.4555371188326499,
+      "knn20_purity": 0.8745333333333334,
+      "dim": 11
+    }
+  },
+  "cluster_quality": {
+    "n_clusters": 12,
+    "nmi_vs_highway": 0.5612008501776723,
+    "homogeneity": 0.9127903709293825,
+    "completeness": 0.40514621876695134,
+    "v_measure": 0.5612008501776722,
+    "clusters": [
+      {
+        "cluster": 0,
+        "size": 1031,
+        "modal_highway": "residential",
+        "modal_share": 0.9990300678952473
+      },
+      {
+        "cluster": 1,
+        "size": 619,
+        "modal_highway": "primary",
+        "modal_share": 0.9773828756058158
+      },
+      {
+        "cluster": 2,
+        "size": 779,
+        "modal_highway": "residential",
+        "modal_share": 0.9948652118100129
+      },
+      {
+        "cluster": 3,
+        "size": 717,
+        "modal_highway": "primary",
+        "modal_share": 0.99302649930265
+      },
+      {
+        "cluster": 4,
+        "size": 421,
+        "modal_highway": "primary",
+        "modal_share": 0.8907363420427553
+      },
+      {
+        "cluster": 5,
+        "size": 1063,
+        "modal_highway": "tertiary",
+        "modal_share": 0.9962370649106302
+      },
+      {
+        "cluster": 6,
+        "size": 4476,
+        "modal_highway": "residential",
+        "modal_share": 1.0
+      },
+      {
+        "cluster": 7,
+        "size": 345,
+        "modal_highway": "residential",
+        "modal_share": 0.5304347826086957
+      },
+      {
+        "cluster": 8,
+        "size": 400,
+        "modal_highway": "residential",
+        "modal_share": 0.9975
+      },
+      {
+        "cluster": 9,
+        "size": 489,
+        "modal_highway": "unclassified",
+        "modal_share": 0.8957055214723927
+      },
+      {
+        "cluster": 10,
+        "size": 526,
+        "modal_highway": "residential",
+        "modal_share": 0.9980988593155894
+      },
+      {
+        "cluster": 11,
+        "size": 1142,
+        "modal_highway": "residential",
+        "modal_share": 0.9982486865148862
+      }
+    ]
+  },
+  "misalignment_validation": {
+    "overall": {
+      "ml": {
+        "threshold": 0.0,
+        "n_flagged": 732,
+        "n_rest": 11276,
+        "flagged_crashes_per_token": 0.0546448087431694,
+        "rest_crashes_per_token": 0.0650940049663001,
+        "flagged_severity_per_token": 0.07650273224043716,
+        "rest_severity_per_token": 0.09702021993614757,
+        "rr_crashes": 0.8394752907193163,
+        "rr_severity": 0.7885235911729154,
+        "passes_1_5x_crashes": false
+      },
+      "rule": {
+        "threshold": 18.0,
+        "n_flagged": 3,
+        "n_rest": 12005,
+        "flagged_crashes_per_token": 0.0,
+        "rest_crashes_per_token": 0.06447313619325282,
+        "flagged_severity_per_token": 0.0,
+        "rest_severity_per_token": 0.09579341940857976,
+        "rr_crashes": 0.0,
+        "rr_severity": 0.0,
+        "passes_1_5x_crashes": false
+      },
+      "priority": {
+        "threshold": 0.234,
+        "n_flagged": 989,
+        "n_rest": 11019,
+        "flagged_crashes_per_token": 0.1557128412537917,
+        "rest_crashes_per_token": 0.05626644886105817,
+        "flagged_severity_per_token": 0.2224469160768453,
+        "rest_severity_per_token": 0.08439967329158726,
+        "rr_crashes": 2.767419028670211,
+        "rr_severity": 2.6356371701621057,
+        "passes_1_5x_crashes": true
+      }
+    },
+    "by_posted_speed": [
+      {
+        "posted_bucket": "\u226430 kph",
+        "n_tokens": 8284,
+        "ml": {
+          "threshold": 0.0,
+          "n_flagged": 152,
+          "n_rest": 8132,
+          "flagged_crashes_per_token": 0.046052631578947366,
+          "rest_crashes_per_token": 0.04291687161829808,
+          "flagged_severity_per_token": 0.046052631578947366,
+          "rest_severity_per_token": 0.06701918347270044,
+          "rr_crashes": 1.0730659025787965,
+          "rr_severity": 0.6871559633027522,
+          "passes_1_5x_crashes": false
+        },
+        "rule": null,
+        "priority": {
+          "threshold": 0.032,
+          "n_flagged": 145,
+          "n_rest": 8139,
+          "flagged_crashes_per_token": 0.15172413793103448,
+          "rest_crashes_per_token": 0.04103698243027399,
+          "flagged_severity_per_token": 0.23448275862068965,
+          "rest_severity_per_token": 0.06364418233198181,
+          "rr_crashes": 3.697253768325418,
+          "rr_severity": 3.6842763946212225,
+          "passes_1_5x_crashes": true
+        }
+      },
+      {
+        "posted_bucket": "30\u201350 kph",
+        "n_tokens": 3721,
+        "ml": null,
+        "rule": null,
+        "priority": {
+          "threshold": 0.27,
+          "n_flagged": 320,
+          "n_rest": 3401,
+          "flagged_crashes_per_token": 0.146875,
+          "rest_crashes_per_token": 0.10908556306968539,
+          "flagged_severity_per_token": 0.215625,
+          "rest_severity_per_token": 0.1555424875036754,
+          "rr_crashes": 1.3464201482479785,
+          "rr_severity": 1.3862771739130435,
+          "passes_1_5x_crashes": false
+        }
+      }
+    ]
+  }
+}

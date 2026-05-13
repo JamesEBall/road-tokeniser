@@ -42,6 +42,7 @@ rt-fetch = "road_tokeniser.fetch_data:main"
 rt-tokenise = "road_tokeniser.tokenise:main"
 rt-pretrain = "road_tokeniser.model.pretrain:main"
 rt-embed = "road_tokeniser.model.embed:main"
+rt-eval = "road_tokeniser.model.eval:main"
 
 [build-system]
 requires = ["hatchling"]

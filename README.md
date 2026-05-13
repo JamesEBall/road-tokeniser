@@ -139,6 +139,27 @@ rt-embed   --geojson webapp/tokens.geojson --ckpt runs/cambridge_v1/best.pt \
 
 See `notebooks/04_pretrain_diagnostics.ipynb` for UMAP scatter, cluster vs highway-class composition, and nearest-neighbour exploration in embedding space.
 
+### Phase B evaluation — honest numbers
+
+Full report at [`reports/cambridge_eval.md`](reports/cambridge_eval.md). Headlines:
+
+| Test | Result |
+|---|---|
+| Held-out masked-feature reconstruction (MSE) | 0.108 ± 0.006 |
+| Highway-class accuracy on masked nodes | **99.4 %** |
+| Linear-probe macro F1, learned vs raw-geometry (highway one-hot removed) | **0.957 vs 0.454** (+0.503 lift) |
+| K-means NMI vs highway class (k=12, unsupervised) | 0.56 (homogeneity 0.91, completeness 0.41) |
+| Crash-rate RR — ML misalignment top-decile vs rest | **0.84×** ❌ (fails ≥1.5×) |
+| Crash-rate RR — combined priority score | **2.77×** ✅ (3.70× in 30 km/h bucket) |
+
+What this means in plain English:
+
+- The encoder genuinely learns road semantics from masked context — the +0.50 macro-F1 lift over raw geometry is real.
+- The unsupervised **ML misalignment signal does not validate against crashes on Cambridge** — it flags OSM tagging anomalies (which is informative) but those anomalies aren't where crashes happen. The rule-based **priority score does validate** at 2.77× relative risk.
+- Cambridge has only 294 km of road and 803 crashes over 5 years — the unsupervised crash-validation test is statistically weak here by design. Phase C re-runs the same eval on NZ (≈150 k crashes) where there's actually power to falsify the unsupervised claim.
+
+Reproducible: `rt-eval --geojson webapp/tokens.geojson --emb-geojson webapp/embeddings.geojson --emb-parquet webapp/embeddings.parquet --ckpt runs/cambridge_v1/best.pt --report reports/cambridge_eval.md`
+
 ## Licence
 
 MIT for the code in this repository. Data attribution requirements above must be preserved in any derivative use.
