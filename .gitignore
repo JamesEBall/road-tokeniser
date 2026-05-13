@@ -48,3 +48,5 @@ runs/
 .env
 .env.local
 .claude/
+runs/
+webapp/*.parquet
