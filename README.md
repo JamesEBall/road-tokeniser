@@ -116,9 +116,28 @@ road-tokeniser/
 
 | Phase | Status |
 |---|---|
-| A — pipeline + rule engine + viz | ✅ ships a defensible answer |
-| B — unsupervised foundation model + zero-shot transfer | 📋 planned, see `docs/PLAN.md` |
-| C — APAC scale demo + crash-rate validation | 📋 planned |
+| A — pipeline + rule engine + viz | ✅ shipped |
+| B — unsupervised foundation model (Graph Attention + masked-feature SSL) | ✅ shipped (Cambridge) |
+| C — APAC scale + zero-shot transfer + crash-rate validation | 📋 planned |
+
+### Phase B at a glance
+
+- **Architecture**: 4-layer Graph Attention encoder (308 k params) over a graph of road-segment tokens. Edges: along-road (consecutive segments of the same OSM way) + shares-junction (token endpoints within 5 m).
+- **Self-supervised objective**: 15 % of nodes are masked per step; the encoder reconstructs the masked numeric features (MSE), binary tags (BCE), and highway class (cross-entropy) from graph context.
+- **Training**: 300 epochs on Cambridge (12 008 tokens, 80 k edges) — **~6 min on Apple Silicon MPS**. Final highway-class reconstruction accuracy: **99.6 %** from MASKED inputs.
+- **Downstream**: `rt-embed` produces `embeddings.geojson` with UMAP coords, k-means cluster ids, and an unsupervised `ml_misalignment_kph` score (= distance from the modal posted speed of the 50 nearest neighbours in embedding space).
+- **Webapp** auto-detects `embeddings.geojson` and unlocks two extra colour ramps: **Embedding cluster** (categorical) and **ML misalignment**.
+- **First validation result**: the rule-based and unsupervised pipelines independently converge on the same top OSM tagging anomaly (a `primary_link` tagged at 96 km/h in central Cambridge — flagged by both at ~48 km/h misalignment).
+
+```bash
+# Phase B quickstart (after Phase A's rt-tokenise)
+rt-pretrain --geojson webapp/tokens.geojson --runs-dir runs/cambridge_v1 --epochs 300
+rt-embed   --geojson webapp/tokens.geojson --ckpt runs/cambridge_v1/best.pt \
+           --out-geojson webapp/embeddings.geojson --n-clusters 12
+# Webapp now exposes 'Embedding cluster' and 'ML misalignment' colour ramps.
+```
+
+See `notebooks/04_pretrain_diagnostics.ipynb` for UMAP scatter, cluster vs highway-class composition, and nearest-neighbour exploration in embedding space.
 
 ## Licence
 

@@ -316,16 +316,27 @@
     blueorange: ['#2166ac', '#67a9cf', '#d1e5f0', '#fddbc7', '#ef8a62', '#b2182b']
   };
 
+  // Discrete palette for categorical fields (e.g. cluster id).
+  const CLUSTER_PALETTE = [
+    '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+    '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff',
+    '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
+    '#000075', '#a9a9a9'
+  ];
+
   // ---------- Field definitions ----------
+  // `categorical: true` switches the field to the discrete CLUSTER_PALETTE.
   const FIELDS = [
-    { key: 'priority_score',                label: 'Priority score (0-1)',     ramp: 'rdylgn_r',   legend: 'Priority score',          fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
-    { key: 'misalignment_kph',              label: 'Misalignment (km/h)',      ramp: 'rdylgn_r',   legend: 'Misalignment (km/h)',     fixedMin: 0,                fmt: v => v.toFixed(0) },
-    { key: 'posted_speed_kph',              label: 'Posted speed (km/h)',      ramp: 'viridis',    legend: 'Posted speed (km/h)',                                fmt: v => v.toFixed(0) },
-    { key: 'safe_system_speed_kph',         label: 'Safe System speed (km/h)', ramp: 'viridis',    legend: 'Safe System (km/h)',                                 fmt: v => v.toFixed(0) },
-    { key: 'vru_score',                     label: 'VRU exposure score',       ramp: 'purples',    legend: 'VRU exposure',            fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
-    { key: 'crash_score',                   label: 'Crash score',              ramp: 'rdylgn_r',   legend: 'Crash score',             fixedMin: 0,                fmt: v => v.toFixed(1) },
-    { key: 'mean_abs_curvature_rad_per_m',  label: 'Mean curvature (rad/m)',   ramp: 'blueorange', legend: 'Curvature (rad/m)',       fixedMin: 0,                fmt: v => v.toFixed(3) },
-    { key: 'sinuosity',                     label: 'Sinuosity',                ramp: 'blueorange', legend: 'Sinuosity',               fixedMin: 1,                fmt: v => v.toFixed(3) }
+    { key: 'priority_score',                label: 'Priority score (0-1)',         ramp: 'rdylgn_r',   legend: 'Priority score',          fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
+    { key: 'misalignment_kph',              label: 'Rule misalignment (km/h)',     ramp: 'rdylgn_r',   legend: 'Rule misalignment (km/h)', fixedMin: 0,               fmt: v => v.toFixed(0) },
+    { key: 'ml_misalignment_kph',           label: 'ML misalignment (km/h)',       ramp: 'rdylgn_r',   legend: 'ML misalignment (km/h)',  fixedMin: 0,                fmt: v => v.toFixed(0), requiresEmbeddings: true },
+    { key: 'cluster',                       label: 'Embedding cluster',            categorical: true,  legend: 'Cluster id',                                          fmt: v => String(Math.round(v)), requiresEmbeddings: true },
+    { key: 'posted_speed_kph',              label: 'Posted speed (km/h)',          ramp: 'viridis',    legend: 'Posted speed (km/h)',                                fmt: v => v.toFixed(0) },
+    { key: 'safe_system_speed_kph',         label: 'Safe System speed (km/h)',     ramp: 'viridis',    legend: 'Safe System (km/h)',                                 fmt: v => v.toFixed(0) },
+    { key: 'vru_score',                     label: 'VRU exposure score',           ramp: 'purples',    legend: 'VRU exposure',            fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
+    { key: 'crash_score',                   label: 'Crash score',                  ramp: 'rdylgn_r',   legend: 'Crash score',             fixedMin: 0,                fmt: v => v.toFixed(1) },
+    { key: 'mean_abs_curvature_rad_per_m',  label: 'Mean curvature (rad/m)',       ramp: 'blueorange', legend: 'Curvature (rad/m)',       fixedMin: 0,                fmt: v => v.toFixed(3) },
+    { key: 'sinuosity',                     label: 'Sinuosity',                    ramp: 'blueorange', legend: 'Sinuosity',               fixedMin: 1,                fmt: v => v.toFixed(3) }
   ];
 
   // ---------- DOM ----------
@@ -356,13 +367,19 @@
   const aboutModal   = document.getElementById('about-modal');
   const aboutClose   = document.getElementById('about-close');
 
-  // Populate dropdown
-  FIELDS.forEach(f => {
-    const opt = document.createElement('option');
-    opt.value = f.key; opt.textContent = f.label;
-    rampSelect.appendChild(opt);
-  });
-  rampSelect.value = 'priority_score';
+  // Populate dropdown — entries that require embeddings get hidden until we
+  // successfully load embeddings.geojson.
+  function rebuildDropdown(haveEmbeddings) {
+    while (rampSelect.firstChild) rampSelect.removeChild(rampSelect.firstChild);
+    FIELDS.forEach(f => {
+      if (f.requiresEmbeddings && !haveEmbeddings) return;
+      const opt = document.createElement('option');
+      opt.value = f.key; opt.textContent = f.label;
+      rampSelect.appendChild(opt);
+    });
+    rampSelect.value = 'priority_score';
+  }
+  rebuildDropdown(false);
 
   // ---------- State ----------
   let featuresData = [];      // array of {feature, layer}
@@ -408,8 +425,12 @@
 
   function colourFor(feature, field) {
     const v = feature.properties[field.key];
-    const r = fieldRanges[field.key];
+    if (v === null || v === undefined) return '#999';
+    if (field.categorical) {
+      return CLUSTER_PALETTE[Math.abs(Math.round(v)) % CLUSTER_PALETTE.length];
+    }
     if (typeof v !== 'number' || !isFinite(v)) return '#999';
+    const r = fieldRanges[field.key];
     const t = (v - r.min) / (r.max - r.min);
     return interpStops(RAMPS[field.ramp], Math.max(0, Math.min(1, t)));
   }
@@ -434,9 +455,23 @@
   }
 
   function updateLegend(field) {
+    lgTitle.textContent = field.legend;
+    if (field.categorical) {
+      // Build a discrete swatch strip from the palette
+      const r = fieldRanges[field.key];
+      const nUsed = Math.max(1, Math.min(CLUSTER_PALETTE.length, Math.round(r.max - r.min + 1)));
+      const swatches = [];
+      for (let i = 0; i < nUsed; i++) swatches.push(CLUSTER_PALETTE[i]);
+      // Render as horizontal stripes (10% each)
+      const stops = swatches.map((c, i) => `${c} ${(100 * i / nUsed).toFixed(1)}% ${(100 * (i + 1) / nUsed).toFixed(1)}%`).join(', ');
+      lgBar.style.background = `linear-gradient(to bottom, ${stops})`;
+      lgMin.textContent = field.fmt(r.min);
+      lgMid.textContent = field.fmt((r.min + r.max) / 2);
+      lgMax.textContent = field.fmt(r.max);
+      return;
+    }
     const stops = RAMPS[field.ramp];
     lgBar.style.background = gradientCss(stops);
-    lgTitle.textContent = field.legend;
     const r = fieldRanges[field.key];
     lgMin.textContent = field.fmt(r.min);
     lgMid.textContent = field.fmt((r.min + r.max) / 2);
@@ -570,12 +605,22 @@
   }
 
   // ---------- Load data ----------
-  fetch('tokens.geojson', { cache: 'no-cache' })
-    .then(r => {
-      if (!r.ok) throw new Error('HTTP ' + r.status + ' — could not load tokens.geojson');
-      return r.json();
-    })
-    .then(geojson => {
+  // Prefer embeddings.geojson (has ML fields). Fall back to tokens.geojson.
+  function loadGeoJSON() {
+    return fetch('embeddings.geojson', { cache: 'no-cache' })
+      .then(r => {
+        if (r.ok) return r.json().then(gj => ({ gj, embeddings: true }));
+        return fetch('tokens.geojson', { cache: 'no-cache' })
+          .then(r2 => {
+            if (!r2.ok) throw new Error('HTTP ' + r2.status + ' — could not load tokens.geojson or embeddings.geojson');
+            return r2.json().then(gj => ({ gj, embeddings: false }));
+          });
+      });
+  }
+  loadGeoJSON()
+    .then(({ gj, embeddings }) => {
+      rebuildDropdown(embeddings);
+      const geojson = gj;
       if (!geojson || !Array.isArray(geojson.features)) {
         throw new Error('Invalid GeoJSON: missing features array.');
       }
