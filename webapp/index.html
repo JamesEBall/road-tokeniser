@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Road-Segment Misalignment Detector — Safe System Phase A</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: rgba(255, 255, 255, 0.96);
+    --panel-border: rgba(0, 0, 0, 0.08);
+    --ink: #1c1d20;
+    --ink-muted: #5b5e66;
+    --accent: #2b5d8b;
+    --accent-soft: #e8f0f7;
+    --shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --ramp-red: #d73027;
+    --ramp-yellow: #fee08b;
+    --ramp-green: #1a9850;
+  }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: var(--font); color: var(--ink); background: var(--bg); }
+  #map { position: absolute; inset: 0; }
+
+  /* Controls panel */
+  .controls {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 1000;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 16px;
+    width: 320px;
+    max-width: calc(100vw - 28px);
+    backdrop-filter: blur(8px);
+  }
+  .controls h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 10px 0;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .controls h1 .sub { display: block; font-size: 11px; font-weight: 500; color: var(--ink-muted); margin-top: 2px; }
+  .controls label { font-size: 12px; color: var(--ink-muted); display: block; margin-top: 8px; margin-bottom: 4px; font-weight: 500; }
+  .controls select {
+    width: 100%; padding: 7px 9px; font-size: 13px; font-family: var(--font);
+    border: 1px solid #d0d2d6; border-radius: 6px; background: #fff; color: var(--ink);
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%235b5e66' d='M0 0l5 6 5-6z'/></svg>");
+    background-repeat: no-repeat; background-position: right 9px center;
+    padding-right: 26px; cursor: pointer;
+  }
+  .controls select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .controls .chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--ink); cursor: pointer; }
+  .controls .chk input { margin: 0; }
+  .controls .count { margin-top: 10px; font-size: 12px; color: var(--ink-muted); padding-top: 9px; border-top: 1px solid var(--panel-border); }
+  .controls .count strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* Sidebar */
+  .sidebar {
+    position: absolute;
+    top: 14px; right: 14px; bottom: 60px;
+    width: 340px;
+    max-width: calc(100vw - 28px);
+    z-index: 1000;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 0;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+  }
+  .sidebar.open { display: flex; }
+  .sidebar .sb-head {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  }
+  .sidebar .sb-title { font-size: 14px; font-weight: 600; line-height: 1.3; margin: 0; }
+  .sidebar .sb-class { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; text-transform: capitalize; }
+  .sidebar .sb-close {
+    background: none; border: none; cursor: pointer; padding: 2px 6px;
+    font-size: 18px; color: var(--ink-muted); line-height: 1;
+  }
+  .sidebar .sb-close:hover { color: var(--ink); }
+  .sidebar .sb-body { overflow-y: auto; padding: 12px 16px 14px; flex: 1; }
+  .sidebar .speeds {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--accent-soft); border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; line-height: 1.35; margin-bottom: 14px;
+    color: var(--ink);
+  }
+  .sidebar .speeds .arrow { color: var(--ink-muted); }
+  .sidebar .speeds .mis { font-weight: 600; }
+  .sidebar .section { margin-bottom: 12px; }
+  .sidebar .section h3 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-muted); margin: 0 0 6px 0; font-weight: 600;
+  }
+  .sidebar .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 12.5px; padding: 3px 0;
+  }
+  .sidebar .row .k { color: var(--ink-muted); }
+  .sidebar .row .v { color: var(--ink); font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+  .sidebar .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .sidebar .pill {
+    font-size: 11px; padding: 3px 8px; border-radius: 12px;
+    background: #eef0f3; color: var(--ink-muted); font-weight: 500;
+  }
+  .sidebar .pill.on { background: #fde7e0; color: #b03a1a; }
+  .sidebar .rule-tag {
+    display: inline-block; padding: 3px 8px; border-radius: 4px;
+    background: #1c1d20; color: #fff; font-family: var(--mono); font-size: 11px;
+  }
+
+  /* Legend */
+  .legend {
+    position: absolute;
+    bottom: 50px; right: 14px;
+    z-index: 1000;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 10px 12px;
+    width: 78px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    backdrop-filter: blur(8px);
+  }
+  .legend .lg-title { font-size: 11px; font-weight: 600; color: var(--ink); margin-bottom: 8px; line-height: 1.25; }
+  .legend .lg-bar-wrap { display: flex; gap: 6px; align-items: stretch; }
+  .legend .lg-bar { width: 14px; height: 120px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
+  .legend .lg-ticks { display: flex; flex-direction: column; justify-content: space-between; font-variant-numeric: tabular-nums; }
+
+  /* Footer */
+  .footer {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    z-index: 1000;
+    background: rgba(255,255,255,0.94);
+    border-top: 1px solid var(--panel-border);
+    padding: 6px 14px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    backdrop-filter: blur(8px);
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+  .footer .right { white-space: nowrap; }
+
+  /* Loading + error */
+  .overlay {
+    position: absolute; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(247, 247, 245, 0.85);
+    backdrop-filter: blur(2px);
+  }
+  .overlay .card {
+    background: #fff; border: 1px solid var(--panel-border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px 24px; font-size: 14px; color: var(--ink);
+    max-width: 420px; text-align: center;
+  }
+  .overlay .card .err-title { font-weight: 600; margin-bottom: 6px; color: #b03a1a; }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid #d0d2d6; border-top-color: var(--accent);
+    border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 8px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* About modal */
+  .modal-backdrop {
+    position: absolute; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.35);
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px 24px; max-width: 500px; width: calc(100% - 28px);
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .modal h2 { margin: 0 0 10px 0; font-size: 16px; }
+  .modal p { margin: 0 0 10px 0; color: var(--ink-muted); }
+  .modal .close-btn {
+    background: var(--accent); color: #fff; border: none; padding: 7px 14px;
+    border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--font);
+  }
+  .modal .close-btn:hover { background: #234c72; }
+
+  @media (max-width: 640px) {
+    .controls { width: calc(100vw - 28px); }
+    .sidebar { width: calc(100vw - 28px); top: auto; bottom: 60px; height: 50vh; }
+    .legend { bottom: 50px; right: 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="controls" id="controls">
+  <h1>
+    Road-Segment Misalignment Detector
+    <span class="sub">Safe System Phase A</span>
+  </h1>
+  <label for="ramp-select">Colour by:</label>
+  <select id="ramp-select"></select>
+  <label class="chk" for="hotspots-only">
+    <input type="checkbox" id="hotspots-only" />
+    Show priority hotspots only (priority &ge; 0.3)
+  </label>
+  <div class="count" id="count-display">Showing <strong>0</strong> of <strong>0</strong> segments</div>
+</div>
+
+<div class="sidebar" id="sidebar">
+  <div class="sb-head">
+    <div>
+      <p class="sb-title" id="sb-title">—</p>
+      <div class="sb-class" id="sb-class">—</div>
+    </div>
+    <button class="sb-close" id="sb-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="sb-body" id="sb-body"></div>
+</div>
+
+<div class="legend" id="legend">
+  <div class="lg-title" id="lg-title">—</div>
+  <div class="lg-bar-wrap">
+    <div class="lg-bar" id="lg-bar"></div>
+    <div class="lg-ticks" id="lg-ticks">
+      <span id="lg-max">—</span>
+      <span id="lg-mid">—</span>
+      <span id="lg-min">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <div>Road geometry &copy; OpenStreetMap contributors, ODbL. Crash data: Waka Kotahi CAS (CC-BY 4.0) / UK DfT STATS19 (OGL v3.0).</div>
+  <div class="right"><a href="#" id="about-link">About</a></div>
+</div>
+
+<div class="modal-backdrop" id="about-modal">
+  <div class="modal">
+    <h2>About</h2>
+    <p>This visualisation is the Phase A deliverable for the <strong>AI for Safer Roads Innovation Challenge</strong>. It identifies road segments where the posted speed limit is misaligned with the Safe System recommended speed, given the road's geometry, vulnerable road user exposure, and crash history.</p>
+    <p>Each segment is a 5&ndash;35&nbsp;m token derived from OpenStreetMap road geometry, enriched with VRU proximity features and severity-weighted crash counts. The Safe System speed is derived from a rule cascade (motorway pass-through, VRU exposure, junction proximity, curvature, road class).</p>
+    <p>Source: <a href="https://github.com/JamesEBall/road-tokeniser" target="_blank" rel="noopener">github.com/JamesEBall/road-tokeniser</a></p>
+    <button class="close-btn" id="about-close">Close</button>
+  </div>
+</div>
+
+<div class="overlay" id="loading">
+  <div class="card"><span class="spinner"></span>Loading roads&hellip;</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function() {
+  'use strict';
+
+  // ---------- Colour ramp utilities ----------
+  function hexToRgb(h) {
+    const v = h.replace('#','');
+    return [parseInt(v.substr(0,2),16), parseInt(v.substr(2,2),16), parseInt(v.substr(4,2),16)];
+  }
+  function rgbToHex(r,g,b) {
+    const c = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2,'0');
+    return '#' + c(r) + c(g) + c(b);
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function interpStops(stops, t) {
+    // stops: array of hex strings, evenly spaced
+    if (t <= 0) return stops[0];
+    if (t >= 1) return stops[stops.length-1];
+    const n = stops.length - 1;
+    const i = Math.floor(t * n);
+    const f = (t * n) - i;
+    const a = hexToRgb(stops[i]);
+    const b = hexToRgb(stops[i+1]);
+    return rgbToHex(lerp(a[0],b[0],f), lerp(a[1],b[1],f), lerp(a[2],b[2],f));
+  }
+  // Build a CSS linear-gradient string (top = max, bottom = min, since legend max is on top)
+  function gradientCss(stops) {
+    // stops listed low->high. Legend bar has max at top, so reverse for top->bottom = high->low.
+    const rev = stops.slice().reverse();
+    return 'linear-gradient(to bottom, ' + rev.join(', ') + ')';
+  }
+
+  // Ramp definitions: low -> high
+  const RAMPS = {
+    // worse-is-red: green (low/zero) -> yellow -> red (high)
+    rdylgn_r: ['#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#fee08b', '#fdae61', '#f46d43', '#d73027'],
+    // viridis-like: blue -> green -> yellow
+    viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+    // purple ramp
+    purples: ['#f2f0f7', '#cbc9e2', '#9e9ac8', '#756bb1', '#54278f'],
+    // blue -> orange
+    blueorange: ['#2166ac', '#67a9cf', '#d1e5f0', '#fddbc7', '#ef8a62', '#b2182b']
+  };
+
+  // ---------- Field definitions ----------
+  const FIELDS = [
+    { key: 'priority_score',                label: 'Priority score (0-1)',     ramp: 'rdylgn_r',   legend: 'Priority score',          fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
+    { key: 'misalignment_kph',              label: 'Misalignment (km/h)',      ramp: 'rdylgn_r',   legend: 'Misalignment (km/h)',     fixedMin: 0,                fmt: v => v.toFixed(0) },
+    { key: 'posted_speed_kph',              label: 'Posted speed (km/h)',      ramp: 'viridis',    legend: 'Posted speed (km/h)',                                fmt: v => v.toFixed(0) },
+    { key: 'safe_system_speed_kph',         label: 'Safe System speed (km/h)', ramp: 'viridis',    legend: 'Safe System (km/h)',                                 fmt: v => v.toFixed(0) },
+    { key: 'vru_score',                     label: 'VRU exposure score',       ramp: 'purples',    legend: 'VRU exposure',            fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
+    { key: 'crash_score',                   label: 'Crash score',              ramp: 'rdylgn_r',   legend: 'Crash score',             fixedMin: 0,                fmt: v => v.toFixed(1) },
+    { key: 'mean_abs_curvature_rad_per_m',  label: 'Mean curvature (rad/m)',   ramp: 'blueorange', legend: 'Curvature (rad/m)',       fixedMin: 0,                fmt: v => v.toFixed(3) },
+    { key: 'sinuosity',                     label: 'Sinuosity',                ramp: 'blueorange', legend: 'Sinuosity',               fixedMin: 1,                fmt: v => v.toFixed(3) }
+  ];
+
+  // ---------- DOM ----------
+  const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([52.207, 0.125], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const rampSelect   = document.getElementById('ramp-select');
+  const hotspotsOnly = document.getElementById('hotspots-only');
+  const countDisplay = document.getElementById('count-display');
+  const sidebar      = document.getElementById('sidebar');
+  const sbTitle      = document.getElementById('sb-title');
+  const sbClass      = document.getElementById('sb-class');
+  const sbBody       = document.getElementById('sb-body');
+  const sbClose      = document.getElementById('sb-close');
+  const lgTitle      = document.getElementById('lg-title');
+  const lgBar        = document.getElementById('lg-bar');
+  const lgMin        = document.getElementById('lg-min');
+  const lgMid        = document.getElementById('lg-mid');
+  const lgMax        = document.getElementById('lg-max');
+  const loadingEl    = document.getElementById('loading');
+  const aboutLink    = document.getElementById('about-link');
+  const aboutModal   = document.getElementById('about-modal');
+  const aboutClose   = document.getElementById('about-close');
+
+  // Populate dropdown
+  FIELDS.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.key; opt.textContent = f.label;
+    rampSelect.appendChild(opt);
+  });
+  rampSelect.value = 'priority_score';
+
+  // ---------- State ----------
+  let featuresData = [];      // array of {feature, layer}
+  let fieldRanges  = {};      // key -> {min, max}
+  let layerGroup   = L.layerGroup().addTo(map);
+  let currentField = FIELDS[0];
+  let selectedLayer = null;
+
+  // ---------- Helpers ----------
+  function computeRanges(features) {
+    const r = {};
+    FIELDS.forEach(f => {
+      let mn = Infinity, mx = -Infinity;
+      features.forEach(feat => {
+        const v = feat.properties[f.key];
+        if (typeof v === 'number' && isFinite(v)) {
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+        }
+      });
+      if (!isFinite(mn)) mn = 0;
+      if (!isFinite(mx)) mx = 1;
+      if (f.fixedMin !== undefined) mn = f.fixedMin;
+      if (f.fixedMax !== undefined) mx = f.fixedMax;
+      if (mn === mx) mx = mn + 1;
+      r[f.key] = { min: mn, max: mx };
+    });
+    return r;
+  }
+
+  function colourFor(feature, field) {
+    const v = feature.properties[field.key];
+    const r = fieldRanges[field.key];
+    if (typeof v !== 'number' || !isFinite(v)) return '#999';
+    const t = (v - r.min) / (r.max - r.min);
+    return interpStops(RAMPS[field.ramp], Math.max(0, Math.min(1, t)));
+  }
+
+  function styleFor(feature, field, selected) {
+    return {
+      color: colourFor(feature, field),
+      weight: selected ? 7 : 4,
+      opacity: 0.88,
+      lineCap: 'round',
+      lineJoin: 'round'
+    };
+  }
+
+  function updateLegend(field) {
+    const stops = RAMPS[field.ramp];
+    lgBar.style.background = gradientCss(stops);
+    lgTitle.textContent = field.legend;
+    const r = fieldRanges[field.key];
+    lgMin.textContent = field.fmt(r.min);
+    lgMid.textContent = field.fmt((r.min + r.max) / 2);
+    lgMax.textContent = field.fmt(r.max);
+  }
+
+  function applyStyling() {
+    const filterOn = hotspotsOnly.checked;
+    let shown = 0;
+    const total = featuresData.length;
+    featuresData.forEach(({ feature, layer }) => {
+      const keep = !filterOn || (feature.properties.priority_score >= 0.3);
+      if (keep) {
+        if (!map.hasLayer(layer)) layerGroup.addLayer(layer);
+        layer.setStyle(styleFor(feature, currentField, layer === selectedLayer));
+        shown++;
+      } else {
+        if (layerGroup.hasLayer(layer)) layerGroup.removeLayer(layer);
+      }
+    });
+    countDisplay.innerHTML = 'Showing <strong>' + shown.toLocaleString() + '</strong> of <strong>' + total.toLocaleString() + '</strong> segments';
+    updateLegend(currentField);
+  }
+
+  function fmtNum(v, digits) {
+    if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return '—';
+    if (typeof v !== 'number') return String(v);
+    return v.toFixed(digits);
+  }
+
+  function showSidebar(feature, layer) {
+    if (selectedLayer && selectedLayer !== layer) {
+      try { selectedLayer.setStyle(styleFor(selectedLayer.feature, currentField, false)); } catch(e) {}
+    }
+    selectedLayer = layer;
+    layer.setStyle(styleFor(feature, currentField, true));
+    layer.bringToFront();
+
+    const p = feature.properties;
+    sbTitle.textContent = p.name || 'Unnamed road';
+    sbClass.textContent = (p.highway || 'unknown').replace(/_/g, ' ');
+
+    const posted = p.posted_speed_kph;
+    const safe   = p.safe_system_speed_kph;
+    const mis    = p.misalignment_kph;
+    const misStr = (mis > 0 ? '+' : '') + mis + ' km/h';
+
+    const pills = [
+      { label: 'School', on: !!p.school_within_proximity },
+      { label: 'Crossing', on: !!p.crossing_within_proximity },
+      { label: 'Bus stop', on: !!p.bus_stop_within_proximity }
+    ];
+
+    sbBody.innerHTML = '' +
+      '<div class="speeds">' +
+        '<span>Posted: <strong>' + posted + ' km/h</strong></span>' +
+        '<span class="arrow">&rarr;</span>' +
+        '<span>Safe System: <strong>' + safe + ' km/h</strong></span>' +
+        '<span class="arrow">&rarr;</span>' +
+        '<span class="mis">' + misStr + '</span>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Priority</h3>' +
+        '<div class="row"><span class="k">Priority score</span><span class="v">' + fmtNum(p.priority_score, 3) + '</span></div>' +
+        '<div class="row"><span class="k">Rule fired</span><span class="v"><span class="rule-tag">' + (p.safe_system_rule || '—') + '</span></span></div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Vulnerable road users</h3>' +
+        '<div class="row"><span class="k">VRU score</span><span class="v">' + fmtNum(p.vru_score, 3) + '</span></div>' +
+        '<div class="pills">' +
+          pills.map(x => '<span class="pill ' + (x.on ? 'on' : '') + '">' + x.label + (x.on ? ' ✓' : '') + '</span>').join('') +
+        '</div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Crashes</h3>' +
+        '<div class="row"><span class="k">Crash count</span><span class="v">' + (p.crash_count != null ? p.crash_count : '—') + '</span></div>' +
+        '<div class="row"><span class="k">Crash score</span><span class="v">' + fmtNum(p.crash_score, 2) + '</span></div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Geometry</h3>' +
+        '<div class="row"><span class="k">Length</span><span class="v">' + fmtNum(p.length_m, 1) + ' m</span></div>' +
+        '<div class="row"><span class="k">Chord</span><span class="v">' + fmtNum(p.chord_m, 1) + ' m</span></div>' +
+        '<div class="row"><span class="k">Sinuosity</span><span class="v">' + fmtNum(p.sinuosity, 3) + '</span></div>' +
+        '<div class="row"><span class="k">Mean curvature</span><span class="v">' + fmtNum(p.mean_abs_curvature_rad_per_m, 4) + ' rad/m</span></div>' +
+        '<div class="row"><span class="k">Total bearing &Delta;</span><span class="v">' + fmtNum(p.total_bearing_change_rad, 3) + ' rad</span></div>' +
+        '<div class="row"><span class="k">Junction dist</span><span class="v">' + fmtNum(p.dist_to_nearest_junction_m, 1) + ' m</span></div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Attributes</h3>' +
+        '<div class="row"><span class="k">Oneway</span><span class="v">' + (p.oneway ? 'yes' : 'no') + '</span></div>' +
+        '<div class="row"><span class="k">Lanes</span><span class="v">' + (p.lanes || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Surface</span><span class="v">' + (p.surface || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Raw maxspeed</span><span class="v">' + (p.maxspeed_raw || '—') + '</span></div>' +
+      '</div>' +
+      '<div class="section">' +
+        '<h3>Identifiers</h3>' +
+        '<div class="row"><span class="k">Token ID</span><span class="v">' + p.token_id + '</span></div>' +
+        '<div class="row"><span class="k">OSM way ID</span><span class="v">' + (p.way_osmid != null ? p.way_osmid : '—') + '</span></div>' +
+      '</div>';
+
+    sidebar.classList.add('open');
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    if (selectedLayer) {
+      try { selectedLayer.setStyle(styleFor(selectedLayer.feature, currentField, false)); } catch(e) {}
+    }
+    selectedLayer = null;
+  }
+
+  // ---------- Events ----------
+  rampSelect.addEventListener('change', () => {
+    currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+    applyStyling();
+  });
+  hotspotsOnly.addEventListener('change', applyStyling);
+  sbClose.addEventListener('click', closeSidebar);
+
+  aboutLink.addEventListener('click', e => { e.preventDefault(); aboutModal.classList.add('open'); });
+  aboutClose.addEventListener('click', () => aboutModal.classList.remove('open'));
+  aboutModal.addEventListener('click', e => { if (e.target === aboutModal) aboutModal.classList.remove('open'); });
+
+  // ---------- Error helper ----------
+  function showError(title, message) {
+    loadingEl.innerHTML = '' +
+      '<div class="card">' +
+        '<div class="err-title">' + title + '</div>' +
+        '<div>' + message + '</div>' +
+      '</div>';
+    loadingEl.style.display = 'flex';
+  }
+
+  // ---------- Load data ----------
+  fetch('tokens.geojson', { cache: 'no-cache' })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — could not load tokens.geojson');
+      return r.json();
+    })
+    .then(geojson => {
+      if (!geojson || !Array.isArray(geojson.features)) {
+        throw new Error('Invalid GeoJSON: missing features array.');
+      }
+      const features = geojson.features;
+      if (features.length === 0) {
+        showError('No data', 'tokens.geojson contains zero features.');
+        return;
+      }
+      fieldRanges = computeRanges(features);
+      currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+
+      const geoLayer = L.geoJSON(geojson, {
+        style: feat => styleFor(feat, currentField, false),
+        onEachFeature: (feat, layer) => {
+          featuresData.push({ feature: feat, layer: layer });
+          layer.on('click', () => showSidebar(feat, layer));
+        }
+      });
+
+      // Add layers individually so we can filter via add/remove on the layerGroup
+      geoLayer.eachLayer(l => layerGroup.addLayer(l));
+
+      // Fit map to data bounds
+      try {
+        const b = geoLayer.getBounds();
+        if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
+      } catch(e) {}
+
+      applyStyling();
+      loadingEl.style.display = 'none';
+    })
+    .catch(err => {
+      console.error(err);
+      showError('Failed to load roads', (err && err.message) ? err.message : 'Unknown error fetching tokens.geojson. If you opened this file directly, serve it with: python -m http.server 8000');
+    });
+
+})();
+</script>
+</body>
+</html>

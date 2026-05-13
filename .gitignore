@@ -47,3 +47,4 @@ runs/
 # Local config
 .env
 .env.local
+.claude/
