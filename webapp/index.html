@@ -217,7 +217,7 @@
 <div class="controls" id="controls">
   <h1>
     Road-Segment Misalignment Detector
-    <span class="sub">AI for Safer Roads — ADB × World Bank × AI for Good × ITU</span>
+    <span class="sub">Safe System speed-limit audit · rule-based + unsupervised foundation model</span>
   </h1>
   <label for="city-select">City:</label>
   <select id="city-select">
@@ -264,8 +264,8 @@
 <div class="modal-backdrop" id="about-modal">
   <div class="modal">
     <h2>About</h2>
-    <p>This visualisation is the Phase A deliverable for the <strong>AI for Safer Roads Innovation Challenge</strong>. It identifies road segments where the posted speed limit is misaligned with the Safe System recommended speed, given the road's geometry, vulnerable road user exposure, and crash history.</p>
-    <p>Each segment is a 5&ndash;35&nbsp;m token derived from OpenStreetMap road geometry, enriched with VRU proximity features and severity-weighted crash counts. The Safe System speed is derived from a rule cascade (motorway pass-through, VRU exposure, junction proximity, curvature, road class).</p>
+    <p>This visualisation identifies road segments where the posted speed limit is misaligned with the Safe System recommended speed, given the road's geometry, vulnerable road user (VRU) exposure, and crash history where available.</p>
+    <p>Each segment is a 5&ndash;35&nbsp;m token derived from OpenStreetMap road geometry, enriched with VRU proximity features and severity-weighted crash counts. The <em>Safe System speed</em> is derived from a rule cascade (motorway pass-through, VRU exposure, junction proximity, curvature, road class). The <em>ML misalignment</em> signal is unsupervised: a Graph Attention encoder pretrained with masked-feature SSL produces an embedding per token, and the score is the distance between the posted limit and the modal posted limit of the 50 geometrically nearest segments in embedding space.</p>
     <p>Source: <a href="https://github.com/JamesEBall/road-tokeniser" target="_blank" rel="noopener">github.com/JamesEBall/road-tokeniser</a></p>
     <button class="close-btn" id="about-close">Close</button>
   </div>

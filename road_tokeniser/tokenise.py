@@ -628,7 +628,7 @@ def run(bbox, site, token_len, out, rules_path=None):
 def main(argv: Iterable[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Tokenise OSM roads and score Safe System misalignment.")
     p.add_argument("--bbox", type=parse_bbox, required=True, help="W,S,E,N in WGS84 (degrees)")
-    p.add_argument("--site", choices=["uk", "nz", "generic"], default="generic")
+    p.add_argument("--site", choices=["uk", "nz", "ph", "generic"], default="generic")
     p.add_argument("--token-len", type=float, default=25.0, help="Target token length in metres")
     p.add_argument("--out", type=Path, required=True, help="Output GeoJSON path")
     p.add_argument("--rules", type=Path, default=None, help="Override rules YAML path")

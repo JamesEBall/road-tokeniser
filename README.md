@@ -6,7 +6,7 @@
 
 A pipeline + visualisation that scores every ~25 m of road for how far its posted speed limit is from the speed a Safe-System assessment would recommend — given the road's geometry, function, and vulnerable-road-user exposure.
 
-Entry for the **AI for Safer Roads Innovation Challenge** (Asian Development Bank × World Bank Development Impact Group × AI for Good × ITU, supported by JFPR and HLTF).
+Two complementary signals: a rule-based engine encoding [Safe System](https://www.who.int/teams/social-determinants-of-health/safety-and-mobility/global-plan-for-the-decade-of-action-for-road-safety-2021-2030) speed thresholds, and an unsupervised foundation model (Graph Attention encoder pretrained with masked-feature SSL on the road network's own geometry) that flags segments whose posted limit is inconsistent with the modal posted limit of their geometric peers.
 
 ## What it does
 
@@ -80,7 +80,7 @@ Per token, the rule engine fires the first matching rule and returns a recommend
 | 9 | `minor_road` | highway = unclassified/road/track | **50** |
 | 10 | `fallthrough` | none of the above | trust posted (no opinion) |
 
-**Output is clamped to ≤ posted** for all non-motorway rules. The challenge brief is about where limits are too high — we never recommend an increase. The `safe_system_rule` field in the output preserves which rule almost fired, so an analyst can see the rationale even when the recommendation matches posted.
+**Output is clamped to ≤ posted** for all non-motorway rules. The pipeline answers "where are limits too high?", not "where could limits be raised?" — we never recommend an increase. The `safe_system_rule` field in the output preserves which rule almost fired, so an analyst can see the rationale even when the recommendation matches posted.
 
 ## Data sources
 

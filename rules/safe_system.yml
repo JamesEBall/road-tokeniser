@@ -76,6 +76,22 @@ country_defaults:
     residential: 50
     living_street: 30
     service: 30
+  ph:
+    # Philippines — DPWH National Road Speed Limit Order + LGU urban defaults.
+    # 100 on expressways; 80 on national/trunk; 60 on urban arterials; 30-40
+    # on residential. Recent LGU reforms (Quezon City 2024) push residential
+    # toward 30. As with UK/NZ, when OSM has no maxspeed, it is most likely
+    # an under-tagged urban road — fall back conservatively.
+    motorway: 100
+    trunk: 80
+    primary: 60      # urban arterial
+    secondary: 60
+    tertiary: 40
+    unclassified: 40
+    residential: 30
+    living_street: 30
+    service: 30
+
   generic:
     motorway: 100
     trunk: 90
