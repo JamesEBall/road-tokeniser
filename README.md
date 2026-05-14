@@ -2,6 +2,8 @@
 
 > Where are posted speed limits inconsistent with Safe System principles?
 
+**Live demo:** [road-tokeniser.vercel.app](https://road-tokeniser.vercel.app) (Cambridge ⇄ Wellington toggle, all ten colour ramps including ML cluster + ML misalignment)
+
 A pipeline + visualisation that scores every ~25 m of road for how far its posted speed limit is from the speed a Safe-System assessment would recommend — given the road's geometry, function, and vulnerable-road-user exposure.
 
 Entry for the **AI for Safer Roads Innovation Challenge** (Asian Development Bank × World Bank Development Impact Group × AI for Good × ITU, supported by JFPR and HLTF).

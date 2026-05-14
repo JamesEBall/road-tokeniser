@@ -217,8 +217,13 @@
 <div class="controls" id="controls">
   <h1>
     Road-Segment Misalignment Detector
-    <span class="sub">Safe System Phase A</span>
+    <span class="sub">AI for Safer Roads — ADB × World Bank × AI for Good × ITU</span>
   </h1>
+  <label for="city-select">City:</label>
+  <select id="city-select">
+    <option value="cambridge">Cambridge, UK (12 k tokens, 11 MB)</option>
+    <option value="wellington">Wellington, NZ (77 k tokens, 73 MB — slow load)</option>
+  </select>
   <label for="ramp-select">Colour by:</label>
   <select id="ramp-select"></select>
   <label class="chk" for="hotspots-only">
@@ -349,6 +354,7 @@
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
+  const citySelect   = document.getElementById('city-select');
   const rampSelect   = document.getElementById('ramp-select');
   const hotspotsOnly = document.getElementById('hotspots-only');
   const countDisplay = document.getElementById('count-display');
@@ -605,66 +611,87 @@
   }
 
   // ---------- Load data ----------
-  // Prefer embeddings.geojson (has ML fields). Fall back to tokens.geojson.
-  function loadGeoJSON() {
-    return fetch('embeddings.geojson', { cache: 'no-cache' })
+  // Each city ships a single embeddings.geojson with all Phase A + Phase B
+  // fields. We switch by URL filename. Initial city comes from ?city=… URL
+  // param OR the dropdown default.
+  const CITY_FILES = {
+    cambridge: 'embeddings.geojson',
+    wellington: 'embeddings_wellington.geojson',
+  };
+  const urlCity = new URLSearchParams(window.location.search).get('city');
+  if (urlCity && CITY_FILES[urlCity]) citySelect.value = urlCity;
+
+  function showLoading(label) {
+    loadingEl.innerHTML = '<div class="card"><div>Loading ' + esc(label) + '…</div></div>';
+    loadingEl.style.display = 'flex';
+  }
+
+  function loadCity(cityKey) {
+    const file = CITY_FILES[cityKey];
+    if (!file) {
+      showError('Unknown city', 'No data file mapped for "' + esc(cityKey) + '".');
+      return Promise.resolve();
+    }
+    showLoading(citySelect.options[citySelect.selectedIndex].textContent);
+
+    // Tear down any existing layer + state
+    if (geoLayer) {
+      try { map.removeLayer(geoLayer); } catch(e) {}
+      geoLayer = null;
+    }
+    featuresData = [];
+    selectedLayer = null;
+    sidebar.classList.remove('open');
+
+    return fetch(file, { cache: 'no-cache' })
       .then(r => {
-        if (r.ok) return r.json().then(gj => ({ gj, embeddings: true }));
-        return fetch('tokens.geojson', { cache: 'no-cache' })
-          .then(r2 => {
-            if (!r2.ok) throw new Error('HTTP ' + r2.status + ' — could not load tokens.geojson or embeddings.geojson');
-            return r2.json().then(gj => ({ gj, embeddings: false }));
-          });
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' — could not load ' + file);
+        return r.json();
+      })
+      .then(geojson => {
+        if (!geojson || !Array.isArray(geojson.features) || geojson.features.length === 0) {
+          throw new Error('Invalid or empty GeoJSON.');
+        }
+        rebuildDropdown(true);  // every city file is an embeddings file
+        fieldRanges = computeRanges(geojson.features);
+        currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+
+        geoLayer = L.geoJSON(geojson, {
+          renderer: canvasRenderer,
+          style: feat => styleFor(feat, currentField, false),
+          onEachFeature: (feat, layer) => {
+            featuresData.push({ feature: feat, layer: layer });
+            layer.on('click', (e) => {
+              L.DomEvent.stopPropagation(e);
+              showSidebar(feat, layer);
+            });
+          },
+        }).addTo(map);
+
+        try {
+          const b = geoLayer.getBounds();
+          if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
+        } catch (e) {}
+
+        applyStyling();
+        loadingEl.style.display = 'none';
+
+        // Reflect choice in URL so the result is shareable
+        const url = new URL(window.location.href);
+        url.searchParams.set('city', cityKey);
+        window.history.replaceState({}, '', url.toString());
+      })
+      .catch(err => {
+        console.error(err);
+        showError('Failed to load roads', (err && err.message) ? err.message : 'Unknown error fetching ' + file + '.');
       });
   }
-  loadGeoJSON()
-    .then(({ gj, embeddings }) => {
-      rebuildDropdown(embeddings);
-      const geojson = gj;
-      if (!geojson || !Array.isArray(geojson.features)) {
-        throw new Error('Invalid GeoJSON: missing features array.');
-      }
-      const features = geojson.features;
-      if (features.length === 0) {
-        showError('No data', 'tokens.geojson contains zero features.');
-        return;
-      }
-      fieldRanges = computeRanges(features);
-      currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
 
-      // Build the L.geoJSON layer directly on the map's canvas renderer.
-      // We keep the same layer container — add/remove for filtering instead
-      // of moving layers between parents (which severs canvas hit-testing).
-      geoLayer = L.geoJSON(geojson, {
-        renderer: canvasRenderer,
-        style: feat => styleFor(feat, currentField, false),
-        onEachFeature: (feat, layer) => {
-          featuresData.push({ feature: feat, layer: layer });
-          // Stop click propagation so the click doesn't reach the map's
-          // background click handler (which would close the sidebar).
-          layer.on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            showSidebar(feat, layer);
-          });
-        }
-      }).addTo(map);
+  // One-time wiring of the background click — done after layer is added.
+  map.on('click', () => { if (selectedLayer) closeSidebar(); });
 
-      // Fit map to data bounds
-      try {
-        const b = geoLayer.getBounds();
-        if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
-      } catch(e) {}
-
-      // Close sidebar when clicking the map background (off any segment)
-      map.on('click', () => { if (selectedLayer) closeSidebar(); });
-
-      applyStyling();
-      loadingEl.style.display = 'none';
-    })
-    .catch(err => {
-      console.error(err);
-      showError('Failed to load roads', (err && err.message) ? err.message : 'Unknown error fetching tokens.geojson. If you opened this file directly, serve it with: python -m http.server 8000');
-    });
+  citySelect.addEventListener('change', () => loadCity(citySelect.value));
+  loadCity(citySelect.value);
 
 })();
 </script>
