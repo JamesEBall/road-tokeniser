@@ -50,3 +50,4 @@ webapp/*.parquet
 .env
 .env.local
 .claude/
+webapp/tiles/

@@ -1,0 +1,5 @@
+# Only ship the static webapp + tiles to Vercel.
+*.geojson
+*.parquet
+serve.py
+.gitignore

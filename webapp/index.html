@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Road-Segment Misalignment Detector — Safe System Phase A</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<title>Road-Segment Misalignment Detector</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <style>
   :root {
     --bg: #f7f7f5;
@@ -20,18 +19,14 @@
     --radius: 10px;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --ramp-red: #d73027;
-    --ramp-yellow: #fee08b;
-    --ramp-green: #1a9850;
   }
   html, body { margin: 0; padding: 0; height: 100%; font-family: var(--font); color: var(--ink); background: var(--bg); }
   #map { position: absolute; inset: 0; }
+  .maplibregl-ctrl-attrib { font-size: 10px; }
 
-  /* Controls panel */
   .controls {
     position: absolute;
-    top: 14px;
-    left: 14px;
+    top: 14px; left: 14px;
     z-index: 1000;
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -43,12 +38,8 @@
     backdrop-filter: blur(8px);
   }
   .controls h1 {
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0 0 10px 0;
-    letter-spacing: -0.01em;
-    line-height: 1.3;
-    color: var(--ink);
+    font-size: 14px; font-weight: 600;
+    margin: 0 0 10px 0; letter-spacing: -0.01em; line-height: 1.3;
   }
   .controls h1 .sub { display: block; font-size: 11px; font-weight: 500; color: var(--ink-muted); margin-top: 2px; }
   .controls label { font-size: 12px; color: var(--ink-muted); display: block; margin-top: 8px; margin-bottom: 4px; font-weight: 500; }
@@ -61,17 +52,15 @@
     padding-right: 26px; cursor: pointer;
   }
   .controls select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-  .controls .chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--ink); cursor: pointer; }
+  .controls .chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; cursor: pointer; }
   .controls .chk input { margin: 0; }
   .controls .count { margin-top: 10px; font-size: 12px; color: var(--ink-muted); padding-top: 9px; border-top: 1px solid var(--panel-border); }
   .controls .count strong { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-  /* Sidebar */
   .sidebar {
     position: absolute;
     top: 14px; right: 14px; bottom: 60px;
-    width: 340px;
-    max-width: calc(100vw - 28px);
+    width: 340px; max-width: calc(100vw - 28px);
     z-index: 1000;
     background: var(--panel);
     border: 1px solid var(--panel-border);
@@ -84,50 +73,26 @@
     backdrop-filter: blur(8px);
   }
   .sidebar.open { display: flex; }
-  .sidebar .sb-head {
-    padding: 14px 16px 12px;
-    border-bottom: 1px solid var(--panel-border);
-    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
-  }
-  .sidebar .sb-title { font-size: 14px; font-weight: 600; line-height: 1.3; margin: 0; }
-  .sidebar .sb-class { font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; text-transform: capitalize; }
-  .sidebar .sb-close {
-    background: none; border: none; cursor: pointer; padding: 2px 6px;
-    font-size: 18px; color: var(--ink-muted); line-height: 1;
-  }
-  .sidebar .sb-close:hover { color: var(--ink); }
-  .sidebar .sb-body { overflow-y: auto; padding: 12px 16px 14px; flex: 1; }
-  .sidebar .speeds {
-    display: flex; align-items: center; gap: 6px;
-    background: var(--accent-soft); border-radius: 8px; padding: 10px 12px;
-    font-size: 13px; line-height: 1.35; margin-bottom: 14px;
-    color: var(--ink);
-  }
-  .sidebar .speeds .arrow { color: var(--ink-muted); }
-  .sidebar .speeds .mis { font-weight: 600; }
-  .sidebar .section { margin-bottom: 12px; }
-  .sidebar .section h3 {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--ink-muted); margin: 0 0 6px 0; font-weight: 600;
-  }
-  .sidebar .row {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-size: 12.5px; padding: 3px 0;
-  }
-  .sidebar .row .k { color: var(--ink-muted); }
-  .sidebar .row .v { color: var(--ink); font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
-  .sidebar .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-  .sidebar .pill {
-    font-size: 11px; padding: 3px 8px; border-radius: 12px;
-    background: #eef0f3; color: var(--ink-muted); font-weight: 500;
-  }
-  .sidebar .pill.on { background: #fde7e0; color: #b03a1a; }
-  .sidebar .rule-tag {
-    display: inline-block; padding: 3px 8px; border-radius: 4px;
-    background: #1c1d20; color: #fff; font-family: var(--mono); font-size: 11px;
-  }
+  .sb-head { display: flex; justify-content: space-between; align-items: start; padding: 14px 16px 10px; border-bottom: 1px solid var(--panel-border); }
+  .sb-title { font-size: 16px; font-weight: 600; margin: 0; line-height: 1.25; word-break: break-word; }
+  .sb-class { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 3px; }
+  .sb-close { background: none; border: none; font-size: 22px; line-height: 1; color: var(--ink-muted); cursor: pointer; padding: 0 4px; }
+  .sb-close:hover { color: var(--ink); }
+  .sb-body { padding: 12px 16px 16px; overflow-y: auto; flex: 1; font-size: 13px; }
+  .sb-body .speeds { display: flex; align-items: center; gap: 6px; padding: 10px 12px; background: var(--accent-soft); border-radius: 8px; font-size: 12.5px; flex-wrap: wrap; }
+  .sb-body .speeds .mis { font-weight: 600; color: #b03a1a; margin-left: auto; }
+  .sb-body .speeds .arrow { color: var(--ink-muted); }
+  .sb-body .section { margin-top: 14px; }
+  .sb-body h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 6px; font-weight: 600; }
+  .sb-body .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee; font-size: 12.5px; }
+  .sb-body .row:last-child { border-bottom: none; }
+  .sb-body .k { color: var(--ink-muted); }
+  .sb-body .v { font-family: var(--mono); font-size: 12px; }
+  .sb-body .pills { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .sb-body .pill { font-size: 11px; padding: 3px 8px; border-radius: 12px; background: #eef0f3; color: var(--ink-muted); font-weight: 500; }
+  .sb-body .pill.on { background: #fde7e0; color: #b03a1a; }
+  .sb-body .rule-tag { display: inline-block; padding: 3px 8px; border-radius: 4px; background: #1c1d20; color: #fff; font-family: var(--mono); font-size: 11px; }
 
-  /* Legend */
   .legend {
     position: absolute;
     bottom: 50px; right: 14px;
@@ -142,87 +107,70 @@
     color: var(--ink-muted);
     backdrop-filter: blur(8px);
   }
-  .legend .lg-title { font-size: 11px; font-weight: 600; color: var(--ink); margin-bottom: 8px; line-height: 1.25; }
-  .legend .lg-bar-wrap { display: flex; gap: 6px; align-items: stretch; }
-  .legend .lg-bar { width: 14px; height: 120px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
-  .legend .lg-ticks { display: flex; flex-direction: column; justify-content: space-between; font-variant-numeric: tabular-nums; }
+  .legend.hidden { display: none; }
+  .lg-title { font-size: 11px; font-weight: 600; color: var(--ink); margin-bottom: 8px; line-height: 1.25; }
+  .lg-bar-wrap { display: flex; gap: 6px; align-items: stretch; }
+  .lg-bar { width: 14px; height: 120px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.08); }
+  .lg-ticks { display: flex; flex-direction: column; justify-content: space-between; font-variant-numeric: tabular-nums; }
 
-  /* Footer */
   .footer {
     position: absolute; left: 0; right: 0; bottom: 0;
     z-index: 1000;
     background: rgba(255,255,255,0.94);
     border-top: 1px solid var(--panel-border);
-    padding: 6px 14px;
-    font-size: 11px;
-    color: var(--ink-muted);
-    display: flex; justify-content: space-between; align-items: center; gap: 12px;
-    backdrop-filter: blur(8px);
+    padding: 6px 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--ink-muted);
   }
-  .footer a { color: var(--accent); text-decoration: none; }
-  .footer a:hover { text-decoration: underline; }
-  .footer .right { white-space: nowrap; }
+  .footer .right a { color: var(--accent); text-decoration: none; margin-left: 10px; }
+  .footer .right a:hover { text-decoration: underline; }
 
-  /* Loading + error */
-  .overlay {
-    position: absolute; inset: 0; z-index: 2000;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(247, 247, 245, 0.85);
-    backdrop-filter: blur(2px);
-  }
-  .overlay .card {
-    background: #fff; border: 1px solid var(--panel-border);
-    border-radius: var(--radius); box-shadow: var(--shadow);
-    padding: 18px 24px; font-size: 14px; color: var(--ink);
-    max-width: 420px; text-align: center;
-  }
-  .overlay .card .err-title { font-weight: 600; margin-bottom: 6px; color: #b03a1a; }
-  .spinner {
-    width: 16px; height: 16px; border: 2px solid #d0d2d6; border-top-color: var(--accent);
-    border-radius: 50%; display: inline-block; vertical-align: middle; margin-right: 8px;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* About modal */
   .modal-backdrop {
-    position: absolute; inset: 0; z-index: 3000;
-    background: rgba(0,0,0,0.35);
+    position: absolute; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.4);
     display: none; align-items: center; justify-content: center;
   }
   .modal-backdrop.open { display: flex; }
   .modal {
-    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow);
-    padding: 20px 24px; max-width: 500px; width: calc(100% - 28px);
-    font-size: 13.5px; line-height: 1.5;
+    background: #fff; border-radius: var(--radius); padding: 24px 26px;
+    max-width: 560px; width: calc(100% - 40px);
+    box-shadow: var(--shadow);
+    line-height: 1.5; font-size: 14px;
   }
-  .modal h2 { margin: 0 0 10px 0; font-size: 16px; }
-  .modal p { margin: 0 0 10px 0; color: var(--ink-muted); }
-  .modal .close-btn {
-    background: var(--accent); color: #fff; border: none; padding: 7px 14px;
-    border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--font);
-  }
-  .modal .close-btn:hover { background: #234c72; }
+  .modal h2 { margin: 0 0 12px; font-size: 18px; }
+  .modal p { margin: 8px 0; color: var(--ink); }
+  .modal .close-btn { margin-top: 14px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--panel-border); background: var(--panel); cursor: pointer; }
 
-  @media (max-width: 640px) {
+  .overlay {
+    position: absolute; left: 50%; top: 14px;
+    transform: translateX(-50%);
+    z-index: 1500;
+    display: none;
+    pointer-events: none;
+  }
+  .overlay.show { display: block; }
+  .overlay .card { background: #fff; padding: 10px 16px; border-radius: var(--radius); box-shadow: var(--shadow); font-size: 13px; font-weight: 500; }
+
+  @media (max-width: 700px) {
     .controls { width: calc(100vw - 28px); }
-    .sidebar { width: calc(100vw - 28px); top: auto; bottom: 60px; height: 50vh; }
-    .legend { bottom: 50px; right: 14px; }
+    .sidebar { width: calc(100vw - 28px); top: auto; bottom: 60px; max-height: 50vh; }
+    .legend { display: none; }
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
-<div class="controls" id="controls">
+<div class="controls">
   <h1>
     Road-Segment Misalignment Detector
     <span class="sub">Safe System speed-limit audit · rule-based + unsupervised foundation model</span>
   </h1>
   <label for="city-select">City:</label>
   <select id="city-select">
-    <option value="cambridge">Cambridge, UK (12 k tokens, 11 MB)</option>
-    <option value="wellington">Wellington, NZ (77 k tokens, 73 MB — slow load)</option>
+    <option value="cambridge">Cambridge, UK (12 k tokens)</option>
+    <option value="wellington">Wellington, NZ (77 k tokens)</option>
+    <option value="manila">Manila, PH — zero-shot (240 k tokens)</option>
   </select>
   <label for="ramp-select">Colour by:</label>
   <select id="ramp-select"></select>
@@ -230,7 +178,7 @@
     <input type="checkbox" id="hotspots-only" />
     Show priority hotspots only (priority &ge; 0.3)
   </label>
-  <div class="count" id="count-display">Showing <strong>0</strong> of <strong>0</strong> segments</div>
+  <div class="count" id="count-display">Loading…</div>
 </div>
 
 <div class="sidebar" id="sidebar">
@@ -245,10 +193,10 @@
 </div>
 
 <div class="legend" id="legend">
-  <div class="lg-title" id="lg-title">—</div>
+  <div class="lg-title" id="lg-title">Legend</div>
   <div class="lg-bar-wrap">
     <div class="lg-bar" id="lg-bar"></div>
-    <div class="lg-ticks" id="lg-ticks">
+    <div class="lg-ticks">
       <span id="lg-max">—</span>
       <span id="lg-mid">—</span>
       <span id="lg-min">—</span>
@@ -266,94 +214,59 @@
     <h2>About</h2>
     <p>This visualisation identifies road segments where the posted speed limit is misaligned with the Safe System recommended speed, given the road's geometry, vulnerable road user (VRU) exposure, and crash history where available.</p>
     <p>Each segment is a 5&ndash;35&nbsp;m token derived from OpenStreetMap road geometry, enriched with VRU proximity features and severity-weighted crash counts. The <em>Safe System speed</em> is derived from a rule cascade (motorway pass-through, VRU exposure, junction proximity, curvature, road class). The <em>ML misalignment</em> signal is unsupervised: a Graph Attention encoder pretrained with masked-feature SSL produces an embedding per token, and the score is the distance between the posted limit and the modal posted limit of the 50 geometrically nearest segments in embedding space.</p>
+    <p>Rendering: vector tiles via MapLibre GL JS + PMTiles. Cambridge ~4 MB, Wellington ~25 MB, Manila ~75 MB — all served as a tile pyramid so the browser only fetches what's visible at the current zoom.</p>
     <p>Source: <a href="https://github.com/JamesEBall/road-tokeniser" target="_blank" rel="noopener">github.com/JamesEBall/road-tokeniser</a></p>
     <button class="close-btn" id="about-close">Close</button>
   </div>
 </div>
 
-<div class="overlay" id="loading">
-  <div class="card"><span class="spinner"></span>Loading roads&hellip;</div>
-</div>
+<div class="overlay" id="loading"><div class="card" id="loading-card">Loading…</div></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/pmtiles@3.2.1/dist/pmtiles.js"></script>
 <script>
-(function() {
+(function () {
   'use strict';
 
-  // ---------- Colour ramp utilities ----------
-  function hexToRgb(h) {
-    const v = h.replace('#','');
-    return [parseInt(v.substr(0,2),16), parseInt(v.substr(2,2),16), parseInt(v.substr(4,2),16)];
-  }
-  function rgbToHex(r,g,b) {
-    const c = v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2,'0');
-    return '#' + c(r) + c(g) + c(b);
-  }
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function interpStops(stops, t) {
-    // stops: array of hex strings, evenly spaced
-    if (t <= 0) return stops[0];
-    if (t >= 1) return stops[stops.length-1];
-    const n = stops.length - 1;
-    const i = Math.floor(t * n);
-    const f = (t * n) - i;
-    const a = hexToRgb(stops[i]);
-    const b = hexToRgb(stops[i+1]);
-    return rgbToHex(lerp(a[0],b[0],f), lerp(a[1],b[1],f), lerp(a[2],b[2],f));
-  }
-  // Build a CSS linear-gradient string (top = max, bottom = min, since legend max is on top)
-  function gradientCss(stops) {
-    // stops listed low->high. Legend bar has max at top, so reverse for top->bottom = high->low.
-    const rev = stops.slice().reverse();
-    return 'linear-gradient(to bottom, ' + rev.join(', ') + ')';
-  }
-
-  // Ramp definitions: low -> high
+  // ---------- Colour ramps ----------
   const RAMPS = {
-    // worse-is-red: green (low/zero) -> yellow -> red (high)
     rdylgn_r: ['#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#fee08b', '#fdae61', '#f46d43', '#d73027'],
-    // viridis-like: blue -> green -> yellow
-    viridis: ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
-    // purple ramp
-    purples: ['#f2f0f7', '#cbc9e2', '#9e9ac8', '#756bb1', '#54278f'],
-    // blue -> orange
-    blueorange: ['#2166ac', '#67a9cf', '#d1e5f0', '#fddbc7', '#ef8a62', '#b2182b']
+    viridis:  ['#440154', '#3b528b', '#21918c', '#5ec962', '#fde725'],
+    purples:  ['#f2f0f7', '#cbc9e2', '#9e9ac8', '#756bb1', '#54278f'],
+    blueorange:['#2166ac', '#67a9cf', '#d1e5f0', '#fddbc7', '#ef8a62', '#b2182b'],
   };
-
-  // Discrete palette for categorical fields (e.g. cluster id).
   const CLUSTER_PALETTE = [
     '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
     '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff',
     '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
-    '#000075', '#a9a9a9'
+    '#000075', '#a9a9a9',
   ];
+  function gradientCss(stops) {
+    return 'linear-gradient(to bottom, ' + stops.slice().reverse().join(', ') + ')';
+  }
 
   // ---------- Field definitions ----------
-  // `categorical: true` switches the field to the discrete CLUSTER_PALETTE.
+  // `range` is [min, max] used for the linear interpolation expression and legend.
   const FIELDS = [
-    { key: 'priority_score',                label: 'Priority score (0-1)',         ramp: 'rdylgn_r',   legend: 'Priority score',          fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
-    { key: 'misalignment_kph',              label: 'Rule misalignment (km/h)',     ramp: 'rdylgn_r',   legend: 'Rule misalignment (km/h)', fixedMin: 0,               fmt: v => v.toFixed(0) },
-    { key: 'ml_misalignment_kph',           label: 'ML misalignment (km/h)',       ramp: 'rdylgn_r',   legend: 'ML misalignment (km/h)',  fixedMin: 0,                fmt: v => v.toFixed(0), requiresEmbeddings: true },
-    { key: 'cluster',                       label: 'Embedding cluster',            categorical: true,  legend: 'Cluster id',                                          fmt: v => String(Math.round(v)), requiresEmbeddings: true },
-    { key: 'posted_speed_kph',              label: 'Posted speed (km/h)',          ramp: 'viridis',    legend: 'Posted speed (km/h)',                                fmt: v => v.toFixed(0) },
-    { key: 'safe_system_speed_kph',         label: 'Safe System speed (km/h)',     ramp: 'viridis',    legend: 'Safe System (km/h)',                                 fmt: v => v.toFixed(0) },
-    { key: 'vru_score',                     label: 'VRU exposure score',           ramp: 'purples',    legend: 'VRU exposure',            fixedMin: 0, fixedMax: 1,  fmt: v => v.toFixed(2) },
-    { key: 'crash_score',                   label: 'Crash score',                  ramp: 'rdylgn_r',   legend: 'Crash score',             fixedMin: 0,                fmt: v => v.toFixed(1) },
-    { key: 'mean_abs_curvature_rad_per_m',  label: 'Mean curvature (rad/m)',       ramp: 'blueorange', legend: 'Curvature (rad/m)',       fixedMin: 0,                fmt: v => v.toFixed(3) },
-    { key: 'sinuosity',                     label: 'Sinuosity',                    ramp: 'blueorange', legend: 'Sinuosity',               fixedMin: 1,                fmt: v => v.toFixed(3) }
+    { key: 'priority_score',               label: 'Priority score (0-1)',         ramp: 'rdylgn_r',   legend: 'Priority score',        range: [0, 1],   fmt: v => v.toFixed(2) },
+    { key: 'misalignment_kph',             label: 'Rule misalignment (km/h)',     ramp: 'rdylgn_r',   legend: 'Rule misalignment',     range: [0, 50],  fmt: v => v.toFixed(0) },
+    { key: 'ml_misalignment_kph',          label: 'ML misalignment (km/h)',       ramp: 'rdylgn_r',   legend: 'ML misalignment',       range: [0, 50],  fmt: v => v.toFixed(0) },
+    { key: 'cluster',                      label: 'Embedding cluster',            categorical: true,  legend: 'Cluster id',            range: [0, 19],  fmt: v => String(Math.round(v)) },
+    { key: 'posted_speed_kph',             label: 'Posted speed (km/h)',          ramp: 'viridis',    legend: 'Posted speed',          range: [0, 120], fmt: v => v.toFixed(0) },
+    { key: 'safe_system_speed_kph',        label: 'Safe System speed (km/h)',     ramp: 'viridis',    legend: 'Safe System speed',     range: [0, 120], fmt: v => v.toFixed(0) },
+    { key: 'vru_score',                    label: 'VRU exposure score',           ramp: 'purples',    legend: 'VRU exposure',          range: [0, 1],   fmt: v => v.toFixed(2) },
+    { key: 'crash_score',                  label: 'Crash score',                  ramp: 'rdylgn_r',   legend: 'Crash score',           range: [0, 30],  fmt: v => v.toFixed(1) },
+    { key: 'mean_abs_curvature_rad_per_m', label: 'Mean curvature (rad/m)',       ramp: 'blueorange', legend: 'Curvature',             range: [0, 0.3], fmt: v => v.toFixed(3) },
+    { key: 'sinuosity',                    label: 'Sinuosity',                    ramp: 'blueorange', legend: 'Sinuosity',             range: [1, 1.8], fmt: v => v.toFixed(3) },
   ];
 
-  // ---------- DOM ----------
-  // Explicit canvas renderer — needed so layer.setStyle() reliably redraws and
-  // click hit-tests work after layers move between parents.
-  const canvasRenderer = L.canvas({ padding: 0.5 });
-  const map = L.map('map', { zoomControl: true, renderer: canvasRenderer }).setView([52.207, 0.125], 14);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+  const CITY_TILES = {
+    cambridge:  { url: 'tiles/cambridge.pmtiles',  centre: [0.125, 52.200], zoom: 13, total: 12008 },
+    wellington: { url: 'tiles/wellington.pmtiles', centre: [174.84, -41.26], zoom: 11, total: 76713 },
+    manila:     { url: 'tiles/manila.pmtiles',     centre: [121.03, 14.605], zoom: 12, total: 240001 },
+  };
 
+  // ---------- DOM ----------
   const citySelect   = document.getElementById('city-select');
   const rampSelect   = document.getElementById('ramp-select');
   const hotspotsOnly = document.getElementById('hotspots-only');
@@ -369,165 +282,220 @@
   const lgMid        = document.getElementById('lg-mid');
   const lgMax        = document.getElementById('lg-max');
   const loadingEl    = document.getElementById('loading');
+  const loadingCard  = document.getElementById('loading-card');
   const aboutLink    = document.getElementById('about-link');
   const aboutModal   = document.getElementById('about-modal');
   const aboutClose   = document.getElementById('about-close');
 
-  // Populate dropdown — entries that require embeddings get hidden until we
-  // successfully load embeddings.geojson.
-  function rebuildDropdown(haveEmbeddings) {
+  function rebuildDropdown() {
     while (rampSelect.firstChild) rampSelect.removeChild(rampSelect.firstChild);
     FIELDS.forEach(f => {
-      if (f.requiresEmbeddings && !haveEmbeddings) return;
       const opt = document.createElement('option');
       opt.value = f.key; opt.textContent = f.label;
       rampSelect.appendChild(opt);
     });
     rampSelect.value = 'priority_score';
   }
-  rebuildDropdown(false);
+  rebuildDropdown();
 
-  // ---------- State ----------
-  let featuresData = [];      // array of {feature, layer}
-  let fieldRanges  = {};      // key -> {min, max}
-  let geoLayer     = null;    // populated on data load
-  let currentField = FIELDS[0];
-  let selectedLayer = null;
-
-  // HTML-escape user-provided / OSM-provided strings before innerHTML concat.
-  // OSM way names CAN contain '<' etc.; not escaping is an XSS vector even
-  // on a local file viewer.
   function esc(s) {
     if (s === null || s === undefined) return '';
     return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // ---------- Helpers ----------
-  function computeRanges(features) {
-    const r = {};
-    FIELDS.forEach(f => {
-      let mn = Infinity, mx = -Infinity;
-      features.forEach(feat => {
-        const v = feat.properties[f.key];
-        if (typeof v === 'number' && isFinite(v)) {
-          if (v < mn) mn = v;
-          if (v > mx) mx = v;
-        }
-      });
-      if (!isFinite(mn)) mn = 0;
-      if (!isFinite(mx)) mx = 1;
-      if (f.fixedMin !== undefined) mn = f.fixedMin;
-      if (f.fixedMax !== undefined) mx = f.fixedMax;
-      if (mn === mx) mx = mn + 1;
-      r[f.key] = { min: mn, max: mx };
-    });
-    return r;
-  }
+  // ---------- PMTiles protocol setup ----------
+  const protocol = new pmtiles.Protocol();
+  maplibregl.addProtocol('pmtiles', protocol.tile);
 
-  function colourFor(feature, field) {
-    const v = feature.properties[field.key];
-    if (v === null || v === undefined) return '#999';
+  // ---------- Map init ----------
+  const initialCity = (new URLSearchParams(location.search).get('city')) || 'cambridge';
+  if (!CITY_TILES[initialCity]) { citySelect.value = 'cambridge'; } else { citySelect.value = initialCity; }
+  const initial = CITY_TILES[citySelect.value];
+
+  const map = new maplibregl.Map({
+    container: 'map',
+    center: initial.centre,
+    zoom: initial.zoom,
+    style: {
+      version: 8,
+      sources: {
+        osm: {
+          type: 'raster',
+          tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '&copy; OpenStreetMap contributors',
+        },
+      },
+      layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+    },
+  });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+  // ---------- Style expression builders ----------
+  function colourExpressionFor(field) {
     if (field.categorical) {
-      return CLUSTER_PALETTE[Math.abs(Math.round(v)) % CLUSTER_PALETTE.length];
+      // match expression with one branch per cluster id
+      const stops = [];
+      for (let i = 0; i < CLUSTER_PALETTE.length; i++) {
+        stops.push(i, CLUSTER_PALETTE[i]);
+      }
+      return ['match',
+        ['%', ['to-number', ['coalesce', ['get', field.key], 0]], CLUSTER_PALETTE.length],
+        ...stops,
+        '#999'];
     }
-    if (typeof v !== 'number' || !isFinite(v)) return '#999';
-    const r = fieldRanges[field.key];
-    const t = (v - r.min) / (r.max - r.min);
-    return interpStops(RAMPS[field.ramp], Math.max(0, Math.min(1, t)));
+    const ramp = RAMPS[field.ramp];
+    const [lo, hi] = field.range;
+    const stops = [];
+    for (let i = 0; i < ramp.length; i++) {
+      const t = i / (ramp.length - 1);
+      stops.push(lo + t * (hi - lo), ramp[i]);
+    }
+    return ['interpolate', ['linear'],
+      ['to-number', ['coalesce', ['get', field.key], lo]],
+      ...stops];
   }
 
-  function styleFor(feature, field, selected, hidden) {
-    if (hidden) {
-      return {
-        color: '#000',
-        weight: 0,
-        opacity: 0,
-        interactive: false
-      };
-    }
-    return {
-      color: colourFor(feature, field),
-      weight: selected ? 8 : 5,
-      opacity: 0.92,
-      lineCap: 'round',
-      lineJoin: 'round',
-      interactive: true
-    };
+  function filterExpression() {
+    if (!hotspotsOnly.checked) return null;
+    return ['>=', ['to-number', ['coalesce', ['get', 'priority_score'], 0]], 0.3];
+  }
+
+  function applyStyle() {
+    const field = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+    map.setPaintProperty('tokens-fill', 'line-color', colourExpressionFor(field));
+    const filt = filterExpression();
+    map.setFilter('tokens-fill', filt);
+    map.setFilter('tokens-hit', filt);
+    updateLegend(field);
   }
 
   function updateLegend(field) {
     lgTitle.textContent = field.legend;
+    const [lo, hi] = field.range;
     if (field.categorical) {
-      // Build a discrete swatch strip from the palette
-      const r = fieldRanges[field.key];
-      const nUsed = Math.max(1, Math.min(CLUSTER_PALETTE.length, Math.round(r.max - r.min + 1)));
-      const swatches = [];
-      for (let i = 0; i < nUsed; i++) swatches.push(CLUSTER_PALETTE[i]);
-      // Render as horizontal stripes (10% each)
-      const stops = swatches.map((c, i) => `${c} ${(100 * i / nUsed).toFixed(1)}% ${(100 * (i + 1) / nUsed).toFixed(1)}%`).join(', ');
+      const n = Math.min(CLUSTER_PALETTE.length, Math.round(hi - lo + 1));
+      const stops = CLUSTER_PALETTE.slice(0, n).map((c, i) =>
+        `${c} ${(100 * i / n).toFixed(1)}% ${(100 * (i + 1) / n).toFixed(1)}%`).join(', ');
       lgBar.style.background = `linear-gradient(to bottom, ${stops})`;
-      lgMin.textContent = field.fmt(r.min);
-      lgMid.textContent = field.fmt((r.min + r.max) / 2);
-      lgMax.textContent = field.fmt(r.max);
+    } else {
+      lgBar.style.background = gradientCss(RAMPS[field.ramp]);
+    }
+    lgMin.textContent = field.fmt(lo);
+    lgMid.textContent = field.fmt((lo + hi) / 2);
+    lgMax.textContent = field.fmt(hi);
+  }
+
+  // ---------- City switching ----------
+  function setCity(cityKey) {
+    const info = CITY_TILES[cityKey];
+    if (!info) return;
+    loadingEl.classList.add('show');
+    loadingCard.textContent = 'Loading ' + citySelect.options[citySelect.selectedIndex].textContent + '…';
+
+    // Remove existing tokens layers + source
+    ['tokens-fill', 'tokens-hit', 'tokens-selected'].forEach(id => {
+      if (map.getLayer(id)) map.removeLayer(id);
+    });
+    if (map.getSource('tokens')) map.removeSource('tokens');
+
+    map.addSource('tokens', {
+      type: 'vector',
+      url: 'pmtiles://' + info.url,
+      attribution: 'Road-segment misalignment tokens',
+    });
+    const field = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+    map.addLayer({
+      id: 'tokens-fill',
+      type: 'line',
+      source: 'tokens',
+      'source-layer': 'tokens',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': colourExpressionFor(field),
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2.5, 16, 6],
+        'line-opacity': 0.9,
+      },
+      filter: filterExpression() || ['all'],
+    });
+    // Wider transparent hit layer for easier clicks
+    map.addLayer({
+      id: 'tokens-hit',
+      type: 'line',
+      source: 'tokens',
+      'source-layer': 'tokens',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 10 },
+      filter: filterExpression() || ['all'],
+    });
+    // Highlight selected
+    map.addLayer({
+      id: 'tokens-selected',
+      type: 'line',
+      source: 'tokens',
+      'source-layer': 'tokens',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#000', 'line-width': 8, 'line-opacity': 1 },
+      filter: ['==', ['get', 'token_id'], -1],
+    });
+
+    // Recentre + show loading until first batch of tiles is in
+    map.flyTo({ center: info.centre, zoom: info.zoom, duration: 600 });
+
+    // Dismiss the loading card when the tokens source signals first load.
+    // (`idle` doesn't reliably fire — depends on whether other tiles are
+    // still being fetched. sourcedata + isSourceLoaded is the right hook.)
+    const onTokensLoaded = (e) => {
+      if (e.sourceId === 'tokens' && e.isSourceLoaded) {
+        loadingEl.classList.remove('show');
+        map.off('sourcedata', onTokensLoaded);
+        updateCount();
+      }
+    };
+    map.on('sourcedata', onTokensLoaded);
+
+    const url = new URL(location.href);
+    url.searchParams.set('city', cityKey);
+    history.replaceState({}, '', url.toString());
+  }
+
+  function updateCount() {
+    const info = CITY_TILES[citySelect.value];
+    const total = (info && info.total) || 0;
+    if (!hotspotsOnly.checked) {
+      countDisplay.innerHTML = '<strong>' + total.toLocaleString() + '</strong> segments';
       return;
     }
-    const stops = RAMPS[field.ramp];
-    lgBar.style.background = gradientCss(stops);
-    const r = fieldRanges[field.key];
-    lgMin.textContent = field.fmt(r.min);
-    lgMid.textContent = field.fmt((r.min + r.max) / 2);
-    lgMax.textContent = field.fmt(r.max);
-  }
-
-  function applyStyling() {
-    const filterOn = hotspotsOnly.checked;
-    let shown = 0;
-    const total = featuresData.length;
-    // Filter by setting hidden layers to fully transparent + non-interactive,
-    // not by removing them from the geoJSON layer. Remove/re-add in canvas
-    // mode orphans the canvas path, leaving phantom features visible at
-    // 1-2 px until a full map redraw. Hide-via-style is always reliable.
-    featuresData.forEach(({ feature, layer }) => {
-      const visible = !filterOn || (feature.properties.priority_score >= 0.3);
-      layer.setStyle(styleFor(feature, currentField, layer === selectedLayer, !visible));
-      if (visible) shown++;
-    });
-    countDisplay.innerHTML = 'Showing <strong>' + shown.toLocaleString() + '</strong> of <strong>' + total.toLocaleString() + '</strong> segments';
-    updateLegend(currentField);
-  }
-
-  function fmtNum(v, digits) {
-    if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return '—';
-    if (typeof v !== 'number') return String(v);
-    return v.toFixed(digits);
-  }
-
-  function showSidebar(feature, layer) {
-    if (selectedLayer && selectedLayer !== layer) {
-      try { selectedLayer.setStyle(styleFor(selectedLayer.feature, currentField, false)); } catch(e) {}
+    // For the hotspot filter, queryRenderedFeatures gives a reasonable estimate
+    // when zoomed-out tiles include everything. We dedupe by token_id.
+    try {
+      const feats = map.queryRenderedFeatures({ layers: ['tokens-fill'] });
+      const ids = new Set(feats.map(f => f.properties && f.properties.token_id));
+      countDisplay.innerHTML = '<strong>' + ids.size.toLocaleString() + '</strong> hotspot segments visible (of ' + total.toLocaleString() + ')';
+    } catch (e) {
+      countDisplay.innerHTML = 'hotspot filter on (of <strong>' + total.toLocaleString() + '</strong>)';
     }
-    selectedLayer = layer;
-    layer.setStyle(styleFor(feature, currentField, true));
-    layer.bringToFront();
+  }
 
-    const p = feature.properties;
+  // ---------- Click handling ----------
+  function showSidebarFor(p) {
     sbTitle.textContent = p.name || 'Unnamed road';
     sbClass.textContent = (p.highway || 'unknown').replace(/_/g, ' ');
 
     const posted = p.posted_speed_kph;
-    const safe   = p.safe_system_speed_kph;
-    const mis    = p.misalignment_kph;
+    const safe = p.safe_system_speed_kph;
+    const mis = p.misalignment_kph;
     const misStr = (mis > 0 ? '+' : '') + mis + ' km/h';
+    const fmtNum = (v, d) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—';
 
     const pills = [
-      { label: 'School', on: !!p.school_within_proximity },
+      { label: 'School',   on: !!p.school_within_proximity   },
       { label: 'Crossing', on: !!p.crossing_within_proximity },
-      { label: 'Bus stop', on: !!p.bus_stop_within_proximity }
+      { label: 'Bus stop', on: !!p.bus_stop_within_proximity },
     ];
 
     sbBody.innerHTML = '' +
@@ -535,164 +503,87 @@
         '<span>Posted: <strong>' + esc(posted) + ' km/h</strong></span>' +
         '<span class="arrow">&rarr;</span>' +
         '<span>Safe System: <strong>' + esc(safe) + ' km/h</strong></span>' +
-        '<span class="arrow">&rarr;</span>' +
         '<span class="mis">' + esc(misStr) + '</span>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Priority</h3>' +
+      '<div class="section"><h3>Priority</h3>' +
         '<div class="row"><span class="k">Priority score</span><span class="v">' + fmtNum(p.priority_score, 3) + '</span></div>' +
         '<div class="row"><span class="k">Rule fired</span><span class="v"><span class="rule-tag">' + esc(p.safe_system_rule || '—') + '</span></span></div>' +
+        '<div class="row"><span class="k">ML misalignment</span><span class="v">' + fmtNum(p.ml_misalignment_kph, 1) + ' km/h</span></div>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Vulnerable road users</h3>' +
+      '<div class="section"><h3>Vulnerable road users</h3>' +
         '<div class="row"><span class="k">VRU score</span><span class="v">' + fmtNum(p.vru_score, 3) + '</span></div>' +
-        '<div class="pills">' +
-          pills.map(x => '<span class="pill ' + (x.on ? 'on' : '') + '">' + esc(x.label) + (x.on ? ' ✓' : '') + '</span>').join('') +
+        '<div class="pills">' + pills.map(x =>
+          '<span class="pill ' + (x.on ? 'on' : '') + '">' + esc(x.label) + (x.on ? ' ✓' : '') + '</span>').join('') +
         '</div>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Crashes</h3>' +
+      '<div class="section"><h3>Crashes</h3>' +
         '<div class="row"><span class="k">Crash count</span><span class="v">' + (p.crash_count != null ? p.crash_count : '—') + '</span></div>' +
         '<div class="row"><span class="k">Crash score</span><span class="v">' + fmtNum(p.crash_score, 2) + '</span></div>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Geometry</h3>' +
+      '<div class="section"><h3>Geometry</h3>' +
         '<div class="row"><span class="k">Length</span><span class="v">' + fmtNum(p.length_m, 1) + ' m</span></div>' +
-        '<div class="row"><span class="k">Chord</span><span class="v">' + fmtNum(p.chord_m, 1) + ' m</span></div>' +
         '<div class="row"><span class="k">Sinuosity</span><span class="v">' + fmtNum(p.sinuosity, 3) + '</span></div>' +
         '<div class="row"><span class="k">Mean curvature</span><span class="v">' + fmtNum(p.mean_abs_curvature_rad_per_m, 4) + ' rad/m</span></div>' +
-        '<div class="row"><span class="k">Total bearing &Delta;</span><span class="v">' + fmtNum(p.total_bearing_change_rad, 3) + ' rad</span></div>' +
         '<div class="row"><span class="k">Junction dist</span><span class="v">' + fmtNum(p.dist_to_nearest_junction_m, 1) + ' m</span></div>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Attributes</h3>' +
+      '<div class="section"><h3>Attributes</h3>' +
         '<div class="row"><span class="k">Oneway</span><span class="v">' + (p.oneway ? 'yes' : 'no') + '</span></div>' +
-        '<div class="row"><span class="k">Lanes</span><span class="v">' + esc(p.lanes || '—') + '</span></div>' +
         '<div class="row"><span class="k">Surface</span><span class="v">' + esc(p.surface || '—') + '</span></div>' +
         '<div class="row"><span class="k">Raw maxspeed</span><span class="v">' + esc(p.maxspeed_raw || '—') + '</span></div>' +
+        '<div class="row"><span class="k">Embedding cluster</span><span class="v">' + (p.cluster != null ? p.cluster : '—') + '</span></div>' +
       '</div>' +
-      '<div class="section">' +
-        '<h3>Identifiers</h3>' +
+      '<div class="section"><h3>Identifiers</h3>' +
         '<div class="row"><span class="k">Token ID</span><span class="v">' + esc(p.token_id) + '</span></div>' +
-        '<div class="row"><span class="k">OSM way ID</span><span class="v">' + (p.way_osmid != null ? esc(p.way_osmid) : '—') + '</span></div>' +
+        '<div class="row"><span class="k">OSM way ID</span><span class="v">' + esc(p.way_osmid || '—') + '</span></div>' +
       '</div>';
 
     sidebar.classList.add('open');
+    if (p.token_id != null && map.getLayer('tokens-selected')) {
+      map.setFilter('tokens-selected', ['==', ['get', 'token_id'], p.token_id]);
+    }
   }
 
   function closeSidebar() {
     sidebar.classList.remove('open');
-    if (selectedLayer) {
-      try { selectedLayer.setStyle(styleFor(selectedLayer.feature, currentField, false)); } catch(e) {}
+    if (map.getLayer('tokens-selected')) {
+      map.setFilter('tokens-selected', ['==', ['get', 'token_id'], -1]);
     }
-    selectedLayer = null;
   }
 
   // ---------- Events ----------
-  rampSelect.addEventListener('change', () => {
-    currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
-    applyStyling();
+  map.on('load', () => {
+    setCity(citySelect.value);
   });
-  hotspotsOnly.addEventListener('change', applyStyling);
+  map.on('idle', updateCount);
+  map.on('moveend', updateCount);
+
+  map.on('click', 'tokens-hit', (e) => {
+    if (!e.features || !e.features.length) return;
+    const f = e.features[0];
+    showSidebarFor(f.properties);
+  });
+  map.on('mouseenter', 'tokens-hit', () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', 'tokens-hit', () => map.getCanvas().style.cursor = '');
+  map.on('click', (e) => {
+    if (!e.defaultPrevented) {
+      const hits = map.queryRenderedFeatures(e.point, { layers: ['tokens-hit'] });
+      if (hits.length === 0) closeSidebar();
+    }
+  });
+
+  citySelect.addEventListener('change', () => setCity(citySelect.value));
+  rampSelect.addEventListener('change', applyStyle);
+  hotspotsOnly.addEventListener('change', applyStyle);
   sbClose.addEventListener('click', closeSidebar);
 
-  aboutLink.addEventListener('click', e => { e.preventDefault(); aboutModal.classList.add('open'); });
+  aboutLink.addEventListener('click', (e) => { e.preventDefault(); aboutModal.classList.add('open'); });
   aboutClose.addEventListener('click', () => aboutModal.classList.remove('open'));
-  aboutModal.addEventListener('click', e => { if (e.target === aboutModal) aboutModal.classList.remove('open'); });
+  aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.remove('open'); });
 
-  // ---------- Error helper ----------
-  function showError(title, message) {
-    loadingEl.innerHTML = '' +
-      '<div class="card">' +
-        '<div class="err-title">' + title + '</div>' +
-        '<div>' + message + '</div>' +
-      '</div>';
-    loadingEl.style.display = 'flex';
-  }
-
-  // ---------- Load data ----------
-  // Each city ships a single embeddings.geojson with all Phase A + Phase B
-  // fields. We switch by URL filename. Initial city comes from ?city=… URL
-  // param OR the dropdown default.
-  const CITY_FILES = {
-    cambridge: 'embeddings.geojson',
-    wellington: 'embeddings_wellington.geojson',
-  };
-  const urlCity = new URLSearchParams(window.location.search).get('city');
-  if (urlCity && CITY_FILES[urlCity]) citySelect.value = urlCity;
-
-  function showLoading(label) {
-    loadingEl.innerHTML = '<div class="card"><div>Loading ' + esc(label) + '…</div></div>';
-    loadingEl.style.display = 'flex';
-  }
-
-  function loadCity(cityKey) {
-    const file = CITY_FILES[cityKey];
-    if (!file) {
-      showError('Unknown city', 'No data file mapped for "' + esc(cityKey) + '".');
-      return Promise.resolve();
-    }
-    showLoading(citySelect.options[citySelect.selectedIndex].textContent);
-
-    // Tear down any existing layer + state
-    if (geoLayer) {
-      try { map.removeLayer(geoLayer); } catch(e) {}
-      geoLayer = null;
-    }
-    featuresData = [];
-    selectedLayer = null;
-    sidebar.classList.remove('open');
-
-    return fetch(file, { cache: 'no-cache' })
-      .then(r => {
-        if (!r.ok) throw new Error('HTTP ' + r.status + ' — could not load ' + file);
-        return r.json();
-      })
-      .then(geojson => {
-        if (!geojson || !Array.isArray(geojson.features) || geojson.features.length === 0) {
-          throw new Error('Invalid or empty GeoJSON.');
-        }
-        rebuildDropdown(true);  // every city file is an embeddings file
-        fieldRanges = computeRanges(geojson.features);
-        currentField = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
-
-        geoLayer = L.geoJSON(geojson, {
-          renderer: canvasRenderer,
-          style: feat => styleFor(feat, currentField, false),
-          onEachFeature: (feat, layer) => {
-            featuresData.push({ feature: feat, layer: layer });
-            layer.on('click', (e) => {
-              L.DomEvent.stopPropagation(e);
-              showSidebar(feat, layer);
-            });
-          },
-        }).addTo(map);
-
-        try {
-          const b = geoLayer.getBounds();
-          if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
-        } catch (e) {}
-
-        applyStyling();
-        loadingEl.style.display = 'none';
-
-        // Reflect choice in URL so the result is shareable
-        const url = new URL(window.location.href);
-        url.searchParams.set('city', cityKey);
-        window.history.replaceState({}, '', url.toString());
-      })
-      .catch(err => {
-        console.error(err);
-        showError('Failed to load roads', (err && err.message) ? err.message : 'Unknown error fetching ' + file + '.');
-      });
-  }
-
-  // One-time wiring of the background click — done after layer is added.
-  map.on('click', () => { if (selectedLayer) closeSidebar(); });
-
-  citySelect.addEventListener('change', () => loadCity(citySelect.value));
-  loadCity(citySelect.value);
-
+  // Re-apply style after every city load so colours match current dropdown
+  map.on('sourcedata', (e) => {
+    if (e.sourceId === 'tokens' && e.isSourceLoaded) applyStyle();
+  });
 })();
 </script>
 </body>
