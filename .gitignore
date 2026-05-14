@@ -1,48 +1,52 @@
-
-!webapp/example_tokens.geojson
-# Data and models (large, downloaded on demand)
-# Local config
-# Notebook checkpoints
-# OS / editor
 # Python
-# Virtual environments
-# uv
-*$py.class
-*.egg
-*.egg-info/
-*.geojson
-*.py[cod]
-*.so
-*.swp
-*~
-.DS_Store
-.Python
-.claude/
-.eggs/
-.env
-.env.local
-.idea/
-.ipynb_checkpoints/
-.mypy_cache/
-.pytest_cache/
-.python-version
-.ruff_cache/
-.venv/
-.vscode/
-ENV/
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
-cache/
-data/cache/
-data/processed/
-data/raw/
 develop-eggs/
 dist/
 downloads/
 eggs/
-env/
-runs/
+.eggs/
+*.egg-info/
+*.egg
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
 venv/
-webapp/*.parquet
-webapp/embeddings*.geojson
+env/
+ENV/
+
+# uv
+.python-version
+
+# Data and models (large, downloaded on demand)
+data/raw/
+data/cache/
+data/processed/
 weights/
+runs/
+cache/
+*.geojson
+!webapp/example_tokens.geojson
+webapp/*.parquet
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local config
+.env
+.env.local
+.claude/
