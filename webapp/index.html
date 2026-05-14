@@ -297,6 +297,12 @@
     rampSelect.value = 'priority_score';
   }
   rebuildDropdown();
+  // Render the legend immediately so it doesn't appear blank before the
+  // first tile arrives.
+  function eagerLegendInit() {
+    const field = FIELDS.find(f => f.key === rampSelect.value) || FIELDS[0];
+    updateLegend(field);
+  }
 
   function esc(s) {
     if (s === null || s === undefined) return '';
@@ -318,8 +324,11 @@
     container: 'map',
     center: initial.centre,
     zoom: initial.zoom,
+    fadeDuration: 200,
+    maxTileCacheSize: 2048,   // 4× default — keep tiles around on city switch
     style: {
       version: 8,
+      transition: { duration: 250, delay: 0 },
       sources: {
         osm: {
           type: 'raster',
@@ -417,8 +426,10 @@
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
         'line-color': colourExpressionFor(field),
+        'line-color-transition': { duration: 250, delay: 0 },
         'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 13, 2.5, 16, 6],
-        'line-opacity': 0.9,
+        'line-width-transition': { duration: 150, delay: 0 },
+        'line-opacity': 0.92,
       },
       filter: filterExpression() || ['all'],
     });
@@ -443,20 +454,33 @@
       filter: ['==', ['get', 'token_id'], -1],
     });
 
-    // Recentre + show loading until first batch of tiles is in
-    map.flyTo({ center: info.centre, zoom: info.zoom, duration: 600 });
+    // Recentre. We don't animate flyTo because it visibly stutters when
+    // many vector tiles are concurrently decoding; jumpTo is instant.
+    map.jumpTo({ center: info.centre, zoom: info.zoom });
 
-    // Dismiss the loading card when the tokens source signals first load.
-    // (`idle` doesn't reliably fire — depends on whether other tiles are
-    // still being fetched. sourcedata + isSourceLoaded is the right hook.)
-    const onTokensLoaded = (e) => {
-      if (e.sourceId === 'tokens' && e.isSourceLoaded) {
-        loadingEl.classList.remove('show');
-        map.off('sourcedata', onTokensLoaded);
-        updateCount();
-      }
+    // Loading-card dismissal:
+    // (a) `sourcedata` with isSourceLoaded fires when the PMTiles header is
+    //     parsed — but tiles in the viewport may still be in flight, so the
+    //     map is briefly empty if we hide the card here.
+    // (b) `idle` fires once every map fetch is done, including OSM raster —
+    //     less precise, but ideal for the "everything's loaded" signal.
+    // We dismiss as soon as the tokens source reports any tile, then fade
+    // the layer in. The first-tile fade-in + remaining tiles streaming in
+    // looks far smoother than a hard cutover.
+    let dismissed = false;
+    const dismissLoading = () => {
+      if (dismissed) return;
+      dismissed = true;
+      loadingEl.classList.remove('show');
+      updateCount();
     };
-    map.on('sourcedata', onTokensLoaded);
+    const onSourceData = (e) => {
+      if (e.sourceId === 'tokens' && (e.tile || e.isSourceLoaded)) dismissLoading();
+    };
+    map.on('sourcedata', onSourceData);
+    // Belt and braces: if no tile arrives within 8 s (slow network or
+    // PMTiles header still parsing), still dismiss the loader.
+    setTimeout(dismissLoading, 8000);
 
     const url = new URL(location.href);
     url.searchParams.set('city', cityKey);
@@ -552,6 +576,7 @@
 
   // ---------- Events ----------
   map.on('load', () => {
+    eagerLegendInit();
     setCity(citySelect.value);
   });
   map.on('idle', updateCount);
