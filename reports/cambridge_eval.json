@@ -1,5 +1,6 @@
 {
   "config": {
+    "site_name": "Cambridge (UK)",
     "num_nodes": 12008,
     "num_features": 30,
     "num_edges": 80050,
@@ -10,19 +11,19 @@
   "reconstruction": {
     "trials": 8,
     "mask_rate": 0.15,
-    "numeric_mse_mean": 0.1081530312076211,
-    "numeric_mse_std": 0.006416185776293425,
+    "numeric_mse_mean": 0.10815303213894367,
+    "numeric_mse_std": 0.006416184309301842,
     "binary_bce_mean": 0.07110269460827112,
     "highway_acc_mean": 0.9938922673463821,
     "highway_acc_std": 0.001360068957160285,
     "per_feature_mse": {
       "length_m": 0.2173374593257904,
       "chord_m": 0.1561528444290161,
-      "sinuosity": 0.05372818931937218,
-      "mean_abs_curvature_rad_per_m": 0.06913822144269943,
+      "sinuosity": 0.05372818559408188,
+      "mean_abs_curvature_rad_per_m": 0.06913822889328003,
       "total_bearing_change_rad": 0.2525014877319336,
-      "dist_to_nearest_junction_m": 0.015951169654726982,
-      "vru_score": 0.09221022576093674,
+      "dist_to_nearest_junction_m": 0.015951167792081833,
+      "vru_score": 0.09221021831035614,
       "posted_speed_kph": 0.008204705081880093
     }
   },

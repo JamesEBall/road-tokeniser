@@ -375,7 +375,9 @@ def render_markdown(eval_data: dict) -> str:
     val = eval_data["misalignment_validation"]
 
     lines = []
-    lines.append("# Evaluation — Cambridge foundation model\n")
+    site_name = cfg.get("site_name", "")
+    title_suffix = f" — {site_name}" if site_name else ""
+    lines.append(f"# Evaluation{title_suffix}\n")
     lines.append(f"_Run date: {time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())}_\n")
     lines.append(textwrap.dedent(f"""
     **Setup**
@@ -583,6 +585,7 @@ def run(
     ckpt_path: Path,
     report_path: Path,
     seed: int = 0,
+    site_name: str = "",
 ) -> dict:
     print("[eval] loading graph + model")
     graph = build_from_geojson(geojson_path)
@@ -618,6 +621,7 @@ def run(
 
     eval_data = {
         "config": {
+            "site_name": site_name,
             "num_nodes": graph.num_nodes,
             "num_features": graph.num_features,
             "num_edges": int(data.edge_index.shape[1]),
@@ -647,6 +651,7 @@ def main(argv=None) -> int:
     p.add_argument("--emb-parquet", type=Path, required=True)
     p.add_argument("--ckpt", type=Path, required=True)
     p.add_argument("--report", type=Path, required=True)
+    p.add_argument("--site-name", type=str, default="", help="Friendly site label for the report title")
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args(argv)
     run(
@@ -656,6 +661,7 @@ def main(argv=None) -> int:
         ckpt_path=args.ckpt,
         report_path=args.report,
         seed=args.seed,
+        site_name=args.site_name,
     )
     return 0
 

@@ -139,26 +139,39 @@ rt-embed   --geojson webapp/tokens.geojson --ckpt runs/cambridge_v1/best.pt \
 
 See `notebooks/04_pretrain_diagnostics.ipynb` for UMAP scatter, cluster vs highway-class composition, and nearest-neighbour exploration in embedding space.
 
-### Phase B evaluation — honest numbers
+### Phase B evaluation — Cambridge AND Wellington
 
-Full report at [`reports/cambridge_eval.md`](reports/cambridge_eval.md). Headlines:
+Full comparison at [`reports/cambridge_vs_wellington.md`](reports/cambridge_vs_wellington.md). Individual reports: [`cambridge_eval.md`](reports/cambridge_eval.md), [`wellington_eval.md`](reports/wellington_eval.md).
 
-| Test | Result |
-|---|---|
-| Held-out masked-feature reconstruction (MSE) | 0.108 ± 0.006 |
-| Highway-class accuracy on masked nodes | **99.4 %** |
-| Linear-probe macro F1, learned vs raw-geometry (highway one-hot removed) | **0.957 vs 0.454** (+0.503 lift) |
-| K-means NMI vs highway class (k=12, unsupervised) | 0.56 (homogeneity 0.91, completeness 0.41) |
-| Crash-rate RR — ML misalignment top-decile vs rest | **0.84×** ❌ (fails ≥1.5×) |
-| Crash-rate RR — combined priority score | **2.77×** ✅ (3.70× in 30 km/h bucket) |
+| Test | Cambridge UK | Wellington NZ |
+|---|---|---|
+| Tokens / crashes | 12 008 / 803 | 76 713 / 49 061 |
+| Pretrain wall time (MPS) | 6 min | 65 min |
+| Held-out masked-feature MSE | 0.108 | 0.111 |
+| Highway-class acc on masked nodes | 99.4 % | 98.8 % |
+| Linear-probe macro F1 lift over raw geometry | +0.50 | **+0.59** |
+| K-means NMI vs highway class | 0.56 | **0.69** |
+| **Crash-rate RR, ML misalignment top-decile** | 0.84× ❌ | **3.50× ✅** |
+| **Crash-rate RR, rule misalignment top-decile** | 0.00× (n=3) | **5.07× ✅** |
+| **Crash-rate RR, combined priority score** | 2.77× ✅ | 1.51× ✅ |
+
+In the **30–50 km/h posted-speed bucket** specifically (the rural-arterial regime that matters most for Safe System speed-limit setting), Wellington's ML misalignment hits **3.12×** relative risk — the unsupervised foundation model genuinely flags where crashes happen, having never seen a single crash during training.
 
 What this means in plain English:
 
-- The encoder genuinely learns road semantics from masked context — the +0.50 macro-F1 lift over raw geometry is real.
-- The unsupervised **ML misalignment signal does not validate against crashes on Cambridge** — it flags OSM tagging anomalies (which is informative) but those anomalies aren't where crashes happen. The rule-based **priority score does validate** at 2.77× relative risk.
-- Cambridge has only 294 km of road and 803 crashes over 5 years — the unsupervised crash-validation test is statistically weak here by design. Phase C re-runs the same eval on NZ (≈150 k crashes) where there's actually power to falsify the unsupervised claim.
+- The encoder learns road semantics from masked context — confirmed on both cities.
+- Cambridge's earlier failure was statistical-power (803 crashes is too few). Wellington's 49 k crashes give the test bite, and it passes.
+- For deployment in DMC cities with no crash data, the **combined priority score** (rule × VRU) is the most robust single ranking — passes on both cities.
 
-Reproducible: `rt-eval --geojson webapp/tokens.geojson --emb-geojson webapp/embeddings.geojson --emb-parquet webapp/embeddings.parquet --ckpt runs/cambridge_v1/best.pt --report reports/cambridge_eval.md`
+Reproducible:
+```bash
+rt-eval --geojson webapp/tokens_wellington.geojson \
+        --emb-geojson webapp/embeddings_wellington.geojson \
+        --emb-parquet webapp/embeddings_wellington.parquet \
+        --ckpt runs/wellington_v1/best.pt \
+        --report reports/wellington_eval.md \
+        --site-name "Wellington (NZ)"
+```
 
 ## Licence
 

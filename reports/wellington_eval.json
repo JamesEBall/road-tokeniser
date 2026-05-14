@@ -1,0 +1,306 @@
+{
+  "config": {
+    "site_name": "Wellington (NZ)",
+    "num_nodes": 76713,
+    "num_features": 30,
+    "num_edges": 508464,
+    "embed_dim": 128,
+    "num_layers": 4,
+    "param_count": 308638
+  },
+  "reconstruction": {
+    "trials": 8,
+    "mask_rate": 0.15,
+    "numeric_mse_mean": 0.11051663849502802,
+    "numeric_mse_std": 0.0048371427577053525,
+    "binary_bce_mean": 0.09626464452594519,
+    "highway_acc_mean": 0.98833217471838,
+    "highway_acc_std": 0.0013958396812967994,
+    "per_feature_mse": {
+      "length_m": 0.13946455717086792,
+      "chord_m": 0.10552023351192474,
+      "sinuosity": 0.08313747495412827,
+      "mean_abs_curvature_rad_per_m": 0.09425773471593857,
+      "total_bearing_change_rad": 0.2890836298465729,
+      "dist_to_nearest_junction_m": 0.06649428606033325,
+      "vru_score": 0.09293539822101593,
+      "posted_speed_kph": 0.013239813968539238
+    }
+  },
+  "embedding_quality": {
+    "learned": {
+      "linear_probe_acc": 0.9995437658867236,
+      "linear_probe_f1": 0.976100294369293,
+      "knn20_purity": 0.9949,
+      "dim": 128
+    },
+    "raw_features_no_highway": {
+      "linear_probe_acc": 0.7797040995893892,
+      "linear_probe_f1": 0.38537276296510886,
+      "knn20_purity": 0.7577,
+      "dim": 12
+    },
+    "random_projection_no_highway": {
+      "linear_probe_acc": 0.7800951574007691,
+      "linear_probe_f1": 0.3914819475077683,
+      "knn20_purity": 0.7578333333333334,
+      "dim": 128
+    },
+    "pca_no_highway": {
+      "linear_probe_acc": 0.7790523365704229,
+      "linear_probe_f1": 0.383398520769051,
+      "knn20_purity": 0.7563,
+      "dim": 11
+    }
+  },
+  "cluster_quality": {
+    "n_clusters": 12,
+    "nmi_vs_highway": 0.6925067828720219,
+    "homogeneity": 0.9094838207327577,
+    "completeness": 0.5591172653404032,
+    "v_measure": 0.6925067828720218,
+    "clusters": [
+      {
+        "cluster": 0,
+        "size": 1198,
+        "modal_highway": "living_street",
+        "modal_share": 0.9307178631051753
+      },
+      {
+        "cluster": 1,
+        "size": 18280,
+        "modal_highway": "residential",
+        "modal_share": 1.0
+      },
+      {
+        "cluster": 2,
+        "size": 5661,
+        "modal_highway": "secondary",
+        "modal_share": 0.990990990990991
+      },
+      {
+        "cluster": 3,
+        "size": 6726,
+        "modal_highway": "unclassified",
+        "modal_share": 0.9925661611656259
+      },
+      {
+        "cluster": 4,
+        "size": 3703,
+        "modal_highway": "tertiary",
+        "modal_share": 0.9732649203348637
+      },
+      {
+        "cluster": 5,
+        "size": 6636,
+        "modal_highway": "residential",
+        "modal_share": 0.9983423749246534
+      },
+      {
+        "cluster": 6,
+        "size": 1349,
+        "modal_highway": "primary",
+        "modal_share": 0.7034840622683469
+      },
+      {
+        "cluster": 7,
+        "size": 5625,
+        "modal_highway": "secondary",
+        "modal_share": 0.9639111111111112
+      },
+      {
+        "cluster": 8,
+        "size": 3469,
+        "modal_highway": "trunk",
+        "modal_share": 0.43211300086480253
+      },
+      {
+        "cluster": 9,
+        "size": 9716,
+        "modal_highway": "residential",
+        "modal_share": 0.9974269246603541
+      },
+      {
+        "cluster": 10,
+        "size": 8905,
+        "modal_highway": "residential",
+        "modal_share": 0.9998877035373386
+      },
+      {
+        "cluster": 11,
+        "size": 5445,
+        "modal_highway": "tertiary",
+        "modal_share": 0.9957759412304867
+      }
+    ]
+  },
+  "misalignment_validation": {
+    "overall": {
+      "ml": {
+        "threshold": 0.0,
+        "n_flagged": 2669,
+        "n_rest": 74044,
+        "flagged_crashes_per_token": 2.0003746721618585,
+        "rest_crashes_per_token": 0.5711063691858894,
+        "flagged_severity_per_token": 2.2618958411390033,
+        "rest_severity_per_token": 0.6574334179676948,
+        "rr_crashes": 3.50263064832106,
+        "rr_severity": 3.4404941691755453,
+        "passes_1_5x_crashes": true
+      },
+      "rule": {
+        "threshold": 20.0,
+        "n_flagged": 857,
+        "n_rest": 75856,
+        "flagged_crashes_per_token": 3.010501750291715,
+        "rest_crashes_per_token": 0.5938356886732756,
+        "flagged_severity_per_token": 3.5834305717619603,
+        "rest_severity_per_token": 0.6808294663573086,
+        "rr_crashes": 5.069587105850205,
+        "rr_severity": 5.263330611899995,
+        "passes_1_5x_crashes": true
+      },
+      "priority": {
+        "threshold": 0.3,
+        "n_flagged": 5276,
+        "n_rest": 71437,
+        "flagged_crashes_per_token": 0.9056103108415466,
+        "rest_crashes_per_token": 0.5998012234556322,
+        "flagged_severity_per_token": 1.049090219863533,
+        "rest_severity_per_token": 0.6884527625740162,
+        "rr_crashes": 1.5098507229179323,
+        "rr_severity": 1.5238376209591349,
+        "passes_1_5x_crashes": true
+      }
+    },
+    "by_posted_speed": [
+      {
+        "posted_bucket": "\u226430 kph",
+        "n_tokens": 2709,
+        "ml": {
+          "threshold": 20.0,
+          "n_flagged": 47,
+          "n_rest": 2662,
+          "flagged_crashes_per_token": 0.44680851063829785,
+          "rest_crashes_per_token": 1.9924868519909842,
+          "flagged_severity_per_token": 0.574468085106383,
+          "rest_severity_per_token": 2.247182569496619,
+          "rr_crashes": 0.22424665447193606,
+          "rr_severity": 0.25563925820013234,
+          "passes_1_5x_crashes": false
+        },
+        "rule": null,
+        "priority": null
+      },
+      {
+        "posted_bucket": "30\u201350 kph",
+        "n_tokens": 69635,
+        "ml": {
+          "threshold": 0.0,
+          "n_flagged": 1006,
+          "n_rest": 68629,
+          "flagged_crashes_per_token": 1.408548707753479,
+          "rest_crashes_per_token": 0.4517186612073613,
+          "flagged_severity_per_token": 1.5586481113320079,
+          "rest_severity_per_token": 0.515306940214778,
+          "rr_crashes": 3.118199066624093,
+          "rr_severity": 3.024698465505567,
+          "passes_1_5x_crashes": true
+        },
+        "rule": null,
+        "priority": {
+          "threshold": 0.3,
+          "n_flagged": 4524,
+          "n_rest": 65111,
+          "flagged_crashes_per_token": 0.5517241379310345,
+          "rest_crashes_per_token": 0.4595536852451967,
+          "flagged_severity_per_token": 0.6217948717948718,
+          "rest_severity_per_token": 0.5240281980003378,
+          "rr_crashes": 1.2005651475445354,
+          "rr_severity": 1.1865675819881565,
+          "passes_1_5x_crashes": false
+        }
+      },
+      {
+        "posted_bucket": "50\u201370 kph",
+        "n_tokens": 1053,
+        "ml": {
+          "threshold": 10.0,
+          "n_flagged": 82,
+          "n_rest": 971,
+          "flagged_crashes_per_token": 2.6219512195121952,
+          "rest_crashes_per_token": 1.266735324407827,
+          "flagged_severity_per_token": 3.2195121951219514,
+          "rest_severity_per_token": 1.5437693099897014,
+          "rr_crashes": 2.069849296053936,
+          "rr_severity": 2.0854878862330986,
+          "passes_1_5x_crashes": true
+        },
+        "rule": {
+          "threshold": 30.0,
+          "n_flagged": 53,
+          "n_rest": 1000,
+          "flagged_crashes_per_token": 2.8867924528301887,
+          "rest_crashes_per_token": 1.292,
+          "flagged_severity_per_token": 3.4716981132075473,
+          "rest_severity_per_token": 1.579,
+          "rr_crashes": 2.234359483614697,
+          "rr_severity": 2.1986688494031332,
+          "passes_1_5x_crashes": true
+        },
+        "priority": {
+          "threshold": 0.42,
+          "n_flagged": 81,
+          "n_rest": 972,
+          "flagged_crashes_per_token": 2.0617283950617282,
+          "rest_crashes_per_token": 1.3148148148148149,
+          "flagged_severity_per_token": 2.45679012345679,
+          "rest_severity_per_token": 1.6090534979423867,
+          "rr_crashes": 1.5680751173708918,
+          "rr_severity": 1.526854219948849,
+          "passes_1_5x_crashes": true
+        }
+      },
+      {
+        "posted_bucket": ">70 kph",
+        "n_tokens": 3316,
+        "ml": {
+          "threshold": 0.0,
+          "n_flagged": 219,
+          "n_rest": 3097,
+          "flagged_crashes_per_token": 4.5159817351598175,
+          "rest_crashes_per_token": 2.4052308685824992,
+          "flagged_severity_per_token": 5.091324200913242,
+          "rest_severity_per_token": 2.872457216661285,
+          "rr_crashes": 1.8775668457229098,
+          "rr_severity": 1.772463022732499,
+          "passes_1_5x_crashes": true
+        },
+        "rule": {
+          "threshold": 50.0,
+          "n_flagged": 190,
+          "n_rest": 3126,
+          "flagged_crashes_per_token": 4.663157894736842,
+          "rest_crashes_per_token": 2.415866922584773,
+          "flagged_severity_per_token": 5.621052631578947,
+          "rest_severity_per_token": 2.8608445297504796,
+          "rr_crashes": 1.9302213425512935,
+          "rr_severity": 1.9648228252617455,
+          "passes_1_5x_crashes": true
+        },
+        "priority": {
+          "threshold": 0.65,
+          "n_flagged": 90,
+          "n_rest": 3226,
+          "flagged_crashes_per_token": 4.4,
+          "rest_crashes_per_token": 2.4928704277743337,
+          "flagged_severity_per_token": 5.211111111111111,
+          "rest_severity_per_token": 2.957842529448233,
+          "rr_crashes": 1.7650335737378762,
+          "rr_severity": 1.7617946389063555,
+          "passes_1_5x_crashes": true
+        }
+      }
+    ]
+  }
+}

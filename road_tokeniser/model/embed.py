@@ -57,25 +57,29 @@ def ml_misalignment(
     """For each token, distance of its posted speed from the modal posted speed
     of its k-nearest neighbours in embedding space.
 
-    The unsupervised misalignment signal: a segment whose embedding-neighbours
-    have a different modal posted limit is flagged. Self-similarity ignored.
+    Uses sklearn's NearestNeighbors with a ball/kd-tree — memory is O(N·d),
+    not O(N²), so this scales to ~1 M tokens on a laptop. Self-similarity
+    excluded by asking for k+1 neighbours and dropping the first.
     """
-    # Normalised cosine via L2-normalised embeddings → squared euclidean = 2(1-cos)
+    from sklearn.neighbors import NearestNeighbors
+
+    # L2-normalise so euclidean ≈ cosine distance for the lookup
     e = embeddings / (np.linalg.norm(embeddings, axis=1, keepdims=True) + 1e-9)
-    # Distance matrix — fine at 12 k tokens. For Phase C we'll switch to FAISS.
-    # Use top-k indexing via argpartition for speed.
+    nn = NearestNeighbors(n_neighbors=k + 1, algorithm="auto", n_jobs=-1)
+    nn.fit(e)
+    # query=e returns each row's own neighbour at index 0 (itself); drop it
+    _, idx = nn.kneighbors(e, n_neighbors=k + 1)
+    idx = idx[:, 1:]  # [N, k]
+
+    # Vectorised mode-of-neighbours' posted speeds
     n = e.shape[0]
-    sims = e @ e.T  # [N, N]
-    # Mask self
-    np.fill_diagonal(sims, -np.inf)
-    nn_idx = np.argpartition(-sims, kth=k, axis=1)[:, :k]
     out = np.zeros(n, dtype=np.float32)
+    posted_int = posted.astype(np.int32)
     for i in range(n):
-        neighbours = posted[nn_idx[i]]
-        # Mode = most common posted speed among neighbours
+        neighbours = posted_int[idx[i]]
         vals, counts = np.unique(neighbours, return_counts=True)
-        mode = vals[np.argmax(counts)]
-        out[i] = abs(int(posted[i]) - int(mode))
+        mode = vals[counts.argmax()]
+        out[i] = abs(int(posted_int[i]) - int(mode))
     return out
 
 
@@ -108,10 +112,13 @@ def run(
         emb = model.encode(data.x, data.edge_index).cpu().numpy()
     print(f"[embed] embeddings shape: {emb.shape}")
 
-    # Save raw embeddings parquet
+    # Save raw embeddings parquet — name mirrors the output geojson so a
+    # Cambridge run doesn't overwrite a Wellington run.
     emb_df = pd.DataFrame(emb, columns=[f"e{i}" for i in range(emb.shape[1])])
     emb_df["token_id"] = graph.token_ids
-    emb_df.to_parquet(out_geojson.parent / "embeddings.parquet", index=False)
+    parquet_path = out_geojson.parent / (out_geojson.stem + ".parquet")
+    emb_df.to_parquet(parquet_path, index=False)
+    print(f"[embed] wrote {parquet_path}")
 
     # UMAP to 2D for visualisation
     import umap
